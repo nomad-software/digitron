@@ -83,7 +83,7 @@ func TestNormalise(t *testing.T) {
 		{"too short", Settings{Width: 900, Height: 100, WordSize: 32}, Settings{Width: d.Width, Height: d.Height, WordSize: 32}},
 		{"smallest", Settings{Width: 372, Height: 398, WordSize: 8}, Settings{Width: 372, Height: 398, WordSize: 8}},
 		{"word size too big", Settings{Width: 900, Height: 900, WordSize: 128}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
-		{"unbounded word size", Settings{Width: 900, Height: 900, WordSize: 0}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
+		{"word size 0, from before sizes were capped at 64", Settings{Width: 900, Height: 900, WordSize: 0}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
 		{"odd word size", Settings{Width: 900, Height: 900, WordSize: 12}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
 	} {
 		s := c.in

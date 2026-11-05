@@ -68,6 +68,11 @@ correctly. It is written in Go with a Qt 6 interface using the
   new number and press `=` to do it to that instead: `2 + 3 = 7 =` is 10. It
   is the last operation outside any brackets, so `1 + 2 × 3 = =` multiplies
   by 3 again. AC forgets it.
+- **Repeating decimals** are shown exactly, with a bar over the digits that
+  repeat for ever: `1 ÷ 3` is `0.3̅`, `1 ÷ 7` is `0.1̅4̅2̅8̅5̅7̅`. Some repeat in
+  long blocks, and then the bar runs over all of them: `45 ÷ 85` (9/17)
+  repeats 16 digits, `5294117647058823`, so all 16 are barred. Ctrl+C copies
+  such a number as its fraction.
 - **The whole display is used:** a result is shown exactly when it fits the
   27 characters of the main display, and otherwise rounded to as many
   decimal places as fill it, wherever the point is, with `≈` shown. So
