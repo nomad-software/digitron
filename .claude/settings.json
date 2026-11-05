@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r \".tool_response.filePath // .tool_input.file_path // empty\"); case \"$f\" in *.go|*/go.mod|*/go.sum|*/Makefile) cd \"$CLAUDE_PROJECT_DIR\" && out=$(make build 2>&1) || { printf \"make build failed:\\n%s\\n\" \"$out\" >&2; exit 2; } ;; esac",
+            "timeout": 180,
+            "statusMessage": "Building digitron..."
+          }
+        ]
+      }
+    ]
+  }
+}
