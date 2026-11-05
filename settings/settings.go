@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"digitron/atomicfile"
 	"digitron/calc"
 )
 
@@ -115,17 +116,5 @@ func (s *Settings) normalise() {
 func (s Settings) Save(path string) error {
 	// The settings are only numbers and booleans, which JSON always writes.
 	data, _ := json.MarshalIndent(s, "", "  ")
-	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	if _, err := tmp.Write(append(data, '\n')); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), path)
+	return atomicfile.Write(path, append(data, '\n'), 0o600)
 }

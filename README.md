@@ -294,6 +294,17 @@ or build and run in one step with:
 make run
 ```
 
+On Linux, every time it starts Digitron writes a desktop entry for itself,
+`~/.local/share/applications/digitron.desktop` (or under `$XDG_DATA_HOME`),
+with its logo as the icon in
+`~/.local/share/icons/hicolor/256x256/apps/digitron.png`. That puts it among
+the desktop's applications, to be started from the menu and kept in a dock
+or sidebar. The entry starts the copy that was run last, from wherever it was
+and whatever it is called: the AppImage, if it was run as one, and otherwise
+the program itself. The files are only rewritten when that changes. Delete
+the two files to take it out of the menu again; they come back the next time
+Digitron is run.
+
 ### Settings
 
 The window size, whether the window was maximised, and the word size are

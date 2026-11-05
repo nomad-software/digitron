@@ -69,7 +69,9 @@ func TestPreview(t *testing.T) {
 		Render(img, e, v)
 		writePNG(t, filepath.Join(dir, name+".png"), img, 3)
 	}
-	writePNG(t, filepath.Join(dir, "logo.png"), Icon(), 8)
+	if err := os.WriteFile(filepath.Join(dir, "logo.png"), IconPNG(8), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // writePNG writes img enlarged s times with nearest-neighbour sampling.

@@ -1,12 +1,35 @@
 package ui
 
 import (
+	"bytes"
 	"image"
 	"image/color"
+	"image/png"
 )
 
 // IconSize is the size of the logo in art pixels.
 const IconSize = 32
+
+// IconAt returns the logo enlarged k times, each art pixel a sharp k×k
+// block.
+func IconAt(k int) *image.RGBA {
+	logo := Icon()
+	img := image.NewRGBA(image.Rect(0, 0, IconSize*k, IconSize*k))
+	for y := range IconSize * k {
+		for x := range IconSize * k {
+			img.SetRGBA(x, y, logo.RGBAAt(x/k, y/k))
+		}
+	}
+	return img
+}
+
+// IconPNG returns the logo enlarged k times as a PNG.
+func IconPNG(k int) []byte {
+	var buf bytes.Buffer
+	// Encoding an image in memory cannot fail.
+	_ = png.Encode(&buf, IconAt(k))
+	return buf.Bytes()
+}
 
 // Icon draws the program's logo: a small calculator in the same palette as
 // the full face, with a lit binary readout, on a transparent background.

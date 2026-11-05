@@ -73,18 +73,14 @@ func (a *app) toVirtual(x, y float64) image.Point {
 
 // setIcon uses the logo, enlarged with sharp pixels, as the window icon.
 func (a *app) setIcon() {
-	const k = 8
-	logo := ui.Icon()
-	n := ui.IconSize * k
+	logo := ui.IconAt(8)
+	n := logo.Bounds().Dx()
 	img := qt.NewQImage3(n, n, qt.QImage__Format_RGBA8888)
 	defer img.Delete()
 	bpl := int(img.BytesPerLine())
 	dst := unsafe.Slice(img.Bits(), bpl*n)
 	for y := range n {
-		for x := range n {
-			src := logo.PixOffset(x/k, y/k)
-			copy(dst[y*bpl+x*4:], logo.Pix[src:src+4])
-		}
+		copy(dst[y*bpl:], logo.Pix[y*logo.Stride:y*logo.Stride+n*4])
 	}
 	pm := qt.QPixmap_FromImage(img) // a copy with a finalizer, not deleted here
 	icon := qt.NewQIcon2(pm)

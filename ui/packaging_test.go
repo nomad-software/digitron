@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"image"
+	"image/draw"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -19,14 +20,10 @@ const (
 )
 
 func macIcon() *image.RGBA {
-	logo := Icon()
+	logo := IconAt(macIconScale)
 	img := image.NewRGBA(image.Rect(0, 0, macIconSize, macIconSize))
-	off := (macIconSize - IconSize*macIconScale) / 2
-	for y := range IconSize * macIconScale {
-		for x := range IconSize * macIconScale {
-			img.SetRGBA(off+x, off+y, logo.RGBAAt(x/macIconScale, y/macIconScale))
-		}
-	}
+	off := (macIconSize - logo.Bounds().Dx()) / 2
+	draw.Draw(img, logo.Bounds().Add(image.Pt(off, off)), logo, image.Point{}, draw.Src)
 	return img
 }
 

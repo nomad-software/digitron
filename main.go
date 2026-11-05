@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"image"
 	"os"
+	"runtime"
 
 	qt "github.com/mappu/miqt/qt6"
 
 	"digitron/calc"
+	"digitron/desktop"
 	"digitron/settings"
 	"digitron/sound"
 	"digitron/ui"
@@ -58,7 +60,22 @@ func main() {
 	}
 
 	qt.NewQApplication(os.Args)
-	qt.QCoreApplication_SetApplicationName("digitron")
+	qt.QCoreApplication_SetApplicationName(desktop.Name)
+	qt.QGuiApplication_SetApplicationDisplayName("Digitron")
+	// Under Wayland this is the name a window goes by, which a desktop
+	// matches to the desktop entry of that name for its icon and its place
+	// in the task bar.
+	qt.QGuiApplication_SetDesktopFileName(desktop.Name)
+
+	// On Linux the desktop is given an entry for the program, with the logo
+	// as its icon, which starts the copy that is running now, wherever it is
+	// and whatever it is called, so that it can be started from the
+	// desktop's own menus and kept in a dock or sidebar.
+	if runtime.GOOS == "linux" {
+		if err := desktop.Install(ui.IconPNG(8)); err != nil {
+			fmt.Fprintln(os.Stderr, "digitron: the desktop entry could not be written:", err)
+		}
+	}
 
 	a := &app{
 		eng:    calc.New(),
