@@ -1,10 +1,19 @@
-// Package sound plays the click of a key being pressed. The click,
-// tick.wav, is embedded in the program and played from memory with Qt
-// Multimedia, so no file is read or written. If there is no audio device it
-// is silently skipped.
+// Package sound plays the sounds of the interface: the chirp of a key
+// being pressed and the tick of moving through a menu. The sounds are
+// embedded in the program and played from memory with Qt Multimedia, so no
+// file is read or written. If there is no audio device they are silently
+// skipped.
+//
+// key.wav is the opening chirp of a recording, chatter3.ogg, cut from 20 ms
+// to 140 ms with a 2 ms fade in and a 10 ms fade out, and raised to peak at
+// -1 dB:
+//
+//	ffmpeg -i chatter3.ogg -af "atrim=start=0.020:end=0.140,asetpts=PTS-STARTPTS,afade=t=in:d=0.002,afade=t=out:st=0.110:d=0.010,volume=16.4dB" -ac 1 -ar 32000 -c:a pcm_s16le -map_metadata -1 -fflags +bitexact -flags:a +bitexact key.wav
+//
+// tick.wav is synthesised by the program in gen.
 package sound
 
-//go:generate go run ./gen tick.wav
+//go:generate go run ./gen
 
 import (
 	_ "embed"
@@ -18,21 +27,27 @@ import (
 	"github.com/mappu/miqt/qt6/multimedia"
 )
 
-//go:embed tick.wav
-var tickWAV []byte
+var (
+	//go:embed key.wav
+	keyWAV []byte
+	//go:embed tick.wav
+	tickWAV []byte
+)
 
 const (
-	tickVolume = 0.18 // Volume of the tick from 0 to 1.
+	keyVolume  = 0.18 // Volume of a key's chirp from 0 to 1.
+	tickVolume = 0.12 // Volume of a menu's tick from 0 to 1.
 
-	// The tick is made at a few pitches around its own, from minPitch to
-	// maxPitch, and one is picked at random each time, so that typing
-	// doesn't sound mechanical.
-	variants = 7
-	minPitch = 0.92
-	maxPitch = 1.08
+	// Each sound is made at a few pitches around its own, up to its spread
+	// above and below it, and one is picked at random each time, so that
+	// typing doesn't sound mechanical. The key varies only a little, so it
+	// stays recognisably the same chirp.
+	variants   = 7
+	keySpread  = 0.01
+	tickSpread = 0.08
 
-	// voices is how many ticks can sound at once, so that quick presses
-	// don't cut each other off.
+	// voices is how many of each sound can play at once, so that quick
+	// presses don't cut each other off.
 	voices = 3
 )
 
@@ -42,25 +57,44 @@ type voice struct {
 	buf  *qt.QBuffer
 }
 
-// Player plays the tick. A nil Player plays nothing.
-type Player struct {
-	ticks  [][]byte // 16-bit little-endian PCM, one for each pitch
-	voices []voice
-	next   int // the voice to play the next tick
-	last   int // the pitch played last
+// effect is one sound at each of its pitches, with audio outputs of its
+// own, set to its sample rate.
+type effect struct {
+	pitches [][]byte // 16-bit little-endian PCM
+	voices  []voice
+	next    int // the voice to play it on next
+	last    int // the pitch played last
 }
 
-// New readies the tick to be played. It needs the Qt application to have
+// Player plays the sounds. A nil Player plays nothing.
+type Player struct {
+	key, tick *effect
+}
+
+// New readies the sounds to be played. It needs the Qt application to have
 // been made.
 func New() (*Player, error) {
-	pcm, rate, err := parseWAV(tickWAV)
+	key, err := newEffect(keyWAV, keyVolume, keySpread)
 	if err != nil {
+		return nil, fmt.Errorf("key.wav: %w", err)
+	}
+	tick, err := newEffect(tickWAV, tickVolume, tickSpread)
+	if err != nil {
+		key.close()
 		return nil, fmt.Errorf("tick.wav: %w", err)
 	}
-	p := &Player{last: -1}
+	return &Player{key: key, tick: tick}, nil
+}
+
+func newEffect(wav []byte, volume, spread float64) (*effect, error) {
+	pcm, rate, err := parseWAV(wav)
+	if err != nil {
+		return nil, err
+	}
+	e := &effect{last: -1}
 	for i := range variants {
-		pitch := minPitch + (maxPitch-minPitch)*float64(i)/float64(variants-1)
-		p.ticks = append(p.ticks, pcmBytes(resample(pcm, pitch)))
+		pitch := 1 - spread + 2*spread*float64(i)/float64(variants-1)
+		e.pitches = append(e.pitches, pcmBytes(resample(pcm, pitch)))
 	}
 
 	format := multimedia.NewQAudioFormat()
@@ -70,31 +104,23 @@ func New() (*Player, error) {
 	format.SetSampleFormat(multimedia.QAudioFormat__Int16)
 	for range voices {
 		v := voice{sink: multimedia.NewQAudioSink3(format), buf: qt.NewQBuffer()}
-		v.sink.SetVolume(tickVolume)
-		p.voices = append(p.voices, v)
+		v.sink.SetVolume(volume)
+		e.voices = append(e.voices, v)
 	}
-	return p, nil
+	return e, nil
 }
 
-// Tick plays the tick of a key, at a pitch picked at random, but never the
-// same one twice running.
-func (p *Player) Tick() {
-	if p == nil || len(p.voices) == 0 {
-		return
+// Key plays the chirp of a key being pressed.
+func (p *Player) Key() {
+	if p != nil {
+		p.key.play()
 	}
-	i := rand.Intn(len(p.ticks))
-	if i == p.last && len(p.ticks) > 1 {
-		i = (i + 1 + rand.Intn(len(p.ticks)-1)) % len(p.ticks)
-	}
-	p.last = i
+}
 
-	v := p.voices[p.next]
-	p.next = (p.next + 1) % len(p.voices)
-	v.sink.Stop()
-	v.buf.Close()
-	v.buf.SetData(p.ticks[i])
-	if v.buf.Open(qt.QIODeviceBase__ReadOnly) {
-		v.sink.Start(v.buf.QIODevice)
+// Tick plays the tick of moving through a menu.
+func (p *Player) Tick() {
+	if p != nil {
+		p.tick.play()
 	}
 }
 
@@ -103,12 +129,39 @@ func (p *Player) Close() {
 	if p == nil {
 		return
 	}
-	for _, v := range p.voices {
+	p.key.close()
+	p.tick.close()
+}
+
+// play plays the sound at a pitch picked at random, but never the same one
+// twice running, on its next voice.
+func (e *effect) play() {
+	if len(e.voices) == 0 {
+		return
+	}
+	i := rand.Intn(len(e.pitches))
+	if i == e.last && len(e.pitches) > 1 {
+		i = (i + 1 + rand.Intn(len(e.pitches)-1)) % len(e.pitches)
+	}
+	e.last = i
+
+	v := e.voices[e.next]
+	e.next = (e.next + 1) % len(e.voices)
+	v.sink.Stop()
+	v.buf.Close()
+	v.buf.SetData(e.pitches[i])
+	if v.buf.Open(qt.QIODeviceBase__ReadOnly) {
+		v.sink.Start(v.buf.QIODevice)
+	}
+}
+
+func (e *effect) close() {
+	for _, v := range e.voices {
 		v.sink.Stop()
 		v.sink.Delete()
 		v.buf.Delete()
 	}
-	p.voices = nil
+	e.voices = nil
 }
 
 // parseWAV returns the samples and sample rate of a mono 16-bit PCM WAV

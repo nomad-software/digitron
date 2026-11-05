@@ -8,25 +8,34 @@ import (
 	"testing"
 )
 
-func TestEmbeddedTick(t *testing.T) {
-	s, rate, err := parseWAV(tickWAV)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rate != 22050 || len(s) < 800 {
-		t.Errorf("tick.wav is %d samples at %d Hz", len(s), rate)
+func TestEmbedded(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		wav  []byte
+		rate int
+	}{
+		{"key.wav", keyWAV, 32000},
+		{"tick.wav", tickWAV, 22050},
+	} {
+		s, rate, err := parseWAV(c.wav)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if rate != c.rate || len(s) < rate/50 {
+			t.Errorf("%s is %d samples at %d Hz", c.name, len(s), rate)
+		}
 	}
 }
 
-// TestTickUpToDate checks that the embedded tick.wav is what the generator
-// makes, so a change to it is not forgotten. Run go generate to remake it.
-func TestTickUpToDate(t *testing.T) {
-	out := filepath.Join(t.TempDir(), "tick.wav")
-	cmd := exec.Command("go", "run", "./gen", out)
+// TestUpToDate checks that the embedded tick is what the generator makes,
+// so a change to it is not forgotten. Run go generate to remake it.
+func TestUpToDate(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("go", "run", "./gen", dir)
 	if b, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go run ./gen: %v\n%s", err, b)
 	}
-	want, err := os.ReadFile(out)
+	want, err := os.ReadFile(filepath.Join(dir, "tick.wav"))
 	if err != nil {
 		t.Fatal(err)
 	}

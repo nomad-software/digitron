@@ -1,8 +1,8 @@
-// Command gen makes tick.wav, the click of a key, which the sound package
-// embeds. The click is generated rather than recorded: a soft low thump
-// with a muffled knock and only a hint of a click, the same tick as the
-// typewriter of the "The Thing" screensaver. Run it with go generate in the
-// sound package after changing it.
+// Command gen makes tick.wav, the sound of moving through a menu, which the
+// sound package embeds. It is synthesised rather than recorded: a soft,
+// dull tick, the same as the typewriter of the "The Thing" screensaver.
+// Run it with go generate in the sound package after changing it. It writes
+// to the folder given, or the current one.
 package main
 
 import (
@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -19,11 +20,11 @@ const (
 )
 
 func main() {
-	out := "tick.wav"
+	dir := "."
 	if len(os.Args) > 1 {
-		out = os.Args[1]
+		dir = os.Args[1]
 	}
-	if err := os.WriteFile(out, wav(tickSamples()), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "tick.wav"), wav(tickSamples()), 0o644); err != nil {
 		fmt.Fprintln(os.Stderr, "gen:", err)
 		os.Exit(1)
 	}

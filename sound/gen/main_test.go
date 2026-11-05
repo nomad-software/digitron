@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/binary"
+	"math"
 	"testing"
 )
 
 func TestTickSamples(t *testing.T) {
 	s := tickSamples()
-	if want := int(float64(sampleRate) * tickLength); len(s) < want {
+	if want := int(math.Floor(sampleRate * tickLength)); len(s) < want {
 		t.Fatalf("tick is %d samples, want at least %d", len(s), want)
 	}
 	if s[0] != 0 {

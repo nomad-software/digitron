@@ -37,8 +37,9 @@ type app struct {
 	config settings.Settings
 	path   string
 
-	// click plays the click of a key; nil when sound is off or unavailable.
-	click *sound.Player
+	// sounds plays the chirp of a key and the tick of the menu; nil when
+	// sound is off or unavailable.
+	sounds *sound.Player
 
 	mouseKey string
 	swallow  bool // ignore the release of the click that closed the menu
@@ -65,10 +66,10 @@ func main() {
 	}
 	a.eng.SetWidth(a.config.WordSize)
 	if a.config.Sound {
-		if a.click, err = sound.New(); err != nil {
-			fmt.Fprintln(os.Stderr, "digitron: the keys will make no sound:", err)
+		if a.sounds, err = sound.New(); err != nil {
+			fmt.Fprintln(os.Stderr, "digitron: there will be no sound:", err)
 		}
-		defer a.click.Close()
+		defer a.sounds.Close()
 	}
 	a.w = qt.NewQWidget2()
 	a.w.SetWindowTitle("Digitron")
@@ -176,7 +177,7 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 		// else, dismisses the menu without reaching the keys underneath.
 		if i := ui.MenuItemAt(pt); i >= 0 {
 			a.view.MenuSel, a.view.MenuDown = i, i
-			a.click.Tick()
+			a.sounds.Key()
 		} else if !pt.In(ui.MenuRect) {
 			a.view.CloseMenu()
 			a.swallow = true
@@ -187,7 +188,7 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 	if k, ok := ui.KeyAt(pt); ok {
 		a.mouseKey = k.ID
 		a.view.Pressed = k.ID
-		a.click.Tick()
+		a.sounds.Key()
 		a.w.Update()
 		return
 	}
@@ -234,6 +235,7 @@ func (a *app) mouseMove(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 	}
 	if i := ui.MenuItemAt(a.eventPoint(ev.QSinglePointEvent)); i >= 0 && i != a.view.MenuSel {
 		a.view.MenuSel = i
+		a.sounds.Tick()
 		a.w.Update()
 	}
 }
@@ -260,7 +262,7 @@ func (a *app) wheel(super func(*qt.QWheelEvent), ev *qt.QWheelEvent) {
 		step = 1
 	}
 	if a.view.Menu {
-		a.view.MenuMove(step)
+		a.menuMove(step)
 		a.w.Update()
 		return
 	}
@@ -273,7 +275,7 @@ func (a *app) wheel(super func(*qt.QWheelEvent), ev *qt.QWheelEvent) {
 
 // tap presses a key from the keyboard and briefly shows it held down.
 func (a *app) tap(id string) {
-	a.click.Tick()
+	a.sounds.Key()
 	a.press(id)
 	a.view.Pressed = id
 	a.view.MainScroll = 0
@@ -347,20 +349,30 @@ func (a *app) chooseWidth() {
 	a.saveSettings()
 }
 
+// menuMove moves the menu's highlight by d items, ticking if it moved.
+func (a *app) menuMove(d int) {
+	before := a.view.MenuSel
+	a.view.MenuMove(d)
+	if a.view.MenuSel != before {
+		a.sounds.Tick()
+	}
+}
+
 // menuKey handles the keyboard while the word-size menu is open: arrows
 // move, Enter or Space picks, Escape or W closes, and typing a size's first
 // digit (8, 1, 3, 6) picks it directly.
 func (a *app) menuKey(key qt.Key, text string) {
 	switch key {
 	case qt.Key_Up:
-		a.view.MenuMove(-1)
+		a.menuMove(-1)
 	case qt.Key_Down:
-		a.view.MenuMove(1)
+		a.menuMove(1)
 	case qt.Key_Home:
-		a.view.MenuMove(-len(ui.MenuItems))
+		a.menuMove(-len(ui.MenuItems))
 	case qt.Key_End:
-		a.view.MenuMove(len(ui.MenuItems))
+		a.menuMove(len(ui.MenuItems))
 	case qt.Key_Return, qt.Key_Enter, qt.Key_Space:
+		a.sounds.Key()
 		a.chooseWidth()
 	case qt.Key_Escape, qt.Key_W:
 		a.view.CloseMenu()
@@ -368,6 +380,7 @@ func (a *app) menuKey(key qt.Key, text string) {
 		for i, it := range ui.MenuItems {
 			if text != "" && fmt.Sprint(it.Width)[:1] == text {
 				a.view.MenuSel = i
+				a.sounds.Key()
 				a.chooseWidth()
 				break
 			}

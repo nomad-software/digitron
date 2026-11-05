@@ -20,7 +20,7 @@ correctly. It is written in Go with a Qt 6 interface using the
   current value, and clicking a bit flips it.
 - **A calculator you want to look at.** Digitron is real low-resolution
   pixel art, scaled to sharp square pixels at any size, with keys that move
-  and click when you press them.
+  and chirp when you press them.
 - **Native and small.** It is a single compiled program, not a web page in a
   window. It starts at once and needs only Qt installed.
 - **Nothing phones home.** No account, no telemetry and no network at all.
@@ -49,9 +49,10 @@ correctly. It is written in Go with a Qt 6 interface using the
   `1/7` if its decimal repeats. Ctrl+V takes numbers with `0x`, `0o` or `0b`
   in front, with `_`, `,` or spaces between digits, and fractions such as
   `22/7` in decimal.
-- **Key clicks:** every key press makes a soft, dull click, at a slightly
-  different pitch each time so it never sounds mechanical. The click is
-  synthesised, not recorded, and built into the program. It can be turned off in the
+- **Sound:** every key press makes a short retro chirp, like an old
+  mainframe terminal. Moving through the word-size menu makes a soft, dull
+  tick. Each plays at a slightly different pitch every time, so it never
+  sounds mechanical. Both sounds are built into the program. It can be turned off in the
   [settings](#settings).
 - **Resizing:** the calculator stretches to fill the window.
 - **Remembers** the window size and the word size between runs. See
@@ -105,7 +106,7 @@ Building needs:
 - A C++ compiler (GCC or Clang)
 - `pkg-config`
 - The Qt 6 base development files (Qt 6 Widgets)
-- The Qt 6 Multimedia development files, for the key clicks
+- The Qt 6 Multimedia development files, for the sounds
 
 ### Linux
 
@@ -177,15 +178,17 @@ go build -ldflags "-s -w" -o digitron .
 The `-s -w` flags build without the symbol table and debug information, which
 roughly halves the size of the binary, to about 33 MB.
 
-The key click, `sound/tick.wav`, is embedded in the binary. It is made by a
-small synthesiser in `sound/gen` and committed, so building does not need
-it to be made again. After changing the synthesiser, remake it with:
+The sounds, `sound/key.wav` and `sound/tick.wav`, are committed and
+embedded in the binary. The chirp is cut from a recording; the ffmpeg
+command that cut it is in `sound/sound.go`. The tick is made by a small
+synthesiser in `sound/gen`. After changing the synthesiser, remake the tick
+with:
 
 ```sh
 go generate ./sound
 ```
 
-A test fails if the committed file no longer matches what the synthesiser
+A test fails if the committed tick no longer matches what the synthesiser
 makes.
 
 The first build compiles the whole Qt binding and takes several minutes,
@@ -223,7 +226,7 @@ no such place, the file is kept in the current directory.
 }
 ```
 
-Set `sound` to `false` to silence the key clicks.
+Set `sound` to `false` to turn the sounds off.
 
 A value that is missing or cannot be used is replaced by its default, so the
 file can be edited by hand or deleted to start afresh.
