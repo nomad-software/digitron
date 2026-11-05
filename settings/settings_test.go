@@ -103,3 +103,61 @@ func TestLoadPartial(t *testing.T) {
 		t.Errorf("Load = %+v, want %+v", got, want)
 	}
 }
+
+func TestPrepared(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	path, err := Prepared()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, "digitron", "settings.json"); path != want {
+		t.Errorf("Prepared = %q, want %q", path, want)
+	}
+	if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
+		t.Errorf("Prepared did not make the folder: %v", err)
+	}
+}
+
+func TestPreparedWithoutConfigDir(t *testing.T) {
+	// With neither $XDG_CONFIG_HOME nor $HOME there is no configuration
+	// folder, and the program falls back to the current directory.
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "")
+	if _, err := Prepared(); err == nil {
+		t.Error("Prepared found a folder with no $HOME")
+	}
+}
+
+func TestPreparedCannotMakeFolder(t *testing.T) {
+	// A file where the folder should be.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "digitron"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	if _, err := Prepared(); err == nil {
+		t.Error("Prepared made a folder over a file")
+	}
+}
+
+func TestSaveFails(t *testing.T) {
+	// No folder to write in.
+	if err := Defaults().Save(filepath.Join(t.TempDir(), "missing", "settings.json")); err == nil {
+		t.Error("Save into a missing folder succeeded")
+	}
+	// A folder, with something in it, where the file should be: the new
+	// file cannot replace it, and nothing is left behind.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	if err := os.MkdirAll(filepath.Join(path, "x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := Defaults().Save(path); err == nil {
+		t.Error("Save over a folder succeeded")
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Errorf("Save left %d files behind", len(entries)-1)
+	}
+}

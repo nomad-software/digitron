@@ -135,8 +135,7 @@ type View struct {
 	MenuDown int  // item held down by the mouse, or -1
 
 	// Filled in by Render:
-	Bits      []BitHit
-	MainLines int
+	Bits []BitHit
 }
 
 const (
@@ -400,7 +399,6 @@ func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 	if err := e.Err(); err != nil {
 		msg := "E " + err.Error()
 		c.text(g.Max.X-4-textWidth(msg, 2), g.Max.Y-18, msg, 2, cLCDErr)
-		v.MainLines = 1
 		return
 	}
 
@@ -412,7 +410,6 @@ func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 
 	bigFit := (g.Dx() - 8 + 2) / (advance * 2)
 	if len(cells) <= bigFit {
-		v.MainLines = 1
 		v.MainScroll = 0
 		x := g.Max.X - 4 - (len(cells)*advance*2 - 2)
 		y := g.Max.Y - 18
@@ -432,7 +429,6 @@ func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 	for i := 0; i < len(cells); i += perLine {
 		lines = append(lines, cells[i:min(i+perLine, len(cells))])
 	}
-	v.MainLines = len(lines)
 	v.MainScroll = max(0, min(v.MainScroll, len(lines)-mainVisibleLines))
 	for i := 0; i < mainVisibleLines && v.MainScroll+i < len(lines); i++ {
 		y := g.Min.Y + 13 + i*9
@@ -463,7 +459,7 @@ func (c canvas) binDisplay(e *calc.Engine, v *View) {
 	if e.Err() != nil {
 		return
 	}
-	bits := calc.BitsOf(e.Value(), e.Width).Bits
+	bits := calc.BitsOf(e.Value(), e.Width)
 	n := len(bits)
 	perRow := min(n, bitsPerRow)
 	rows := (n + perRow - 1) / perRow

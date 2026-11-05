@@ -1,0 +1,6 @@
+# The built program (make build).
+/digitron
+
+# Settings written to the current directory when the system has no
+# configuration folder.
+/settings.json

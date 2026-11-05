@@ -226,8 +226,7 @@ func TestBitsAndToggle(t *testing.T) {
 	e := New()
 	e.SetWidth(8)
 	press(e, "1n")
-	b := BitsOf(e.Value(), 8)
-	for i, v := range b.Bits {
+	for i, v := range BitsOf(e.Value(), 8) {
 		if !v {
 			t.Fatalf("bit %d of -1 should be set", i)
 		}

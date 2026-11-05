@@ -1,0 +1,65 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+Digitron is a retro programmer's calculator: exact rational arithmetic, BIN/OCT/DEC/HEX, two's-complement word sizes of 8 to 64 bits, and a face drawn as true low-resolution pixel art. It is written in Go with a Qt 6 GUI via the [miqt](https://github.com/mappu/miqt) bindings. `README.md` is the user-facing description.
+
+## Layout
+
+- `calc/` — the engine. No dependency on Qt or the UI. Values are exact `big.Rat`s; `Width` is always one of `calc.Widths` (8, 16, 32, 64) and integers wrap to it (`wrap`). Non-integers pass through `wrap` untouched, so DEC keeps exact fractions. Precedence follows C.
+- `ui/` — draws the whole calculator into an `image.RGBA` "virtual screen" of `ui.W`×`ui.H` (372×412) art pixels, and owns the layout: `Keys`, `MainGlass`, `BinGlass`, the word-size menu (`menu.go`), the logo (`icon.go`) and both fonts (`font.go`). No Qt here either. `View` holds UI state that is not engine state.
+- `settings/` — the JSON settings file, in Prism's and ApeMail's pattern: `Defaults`, `Load` (falls back to defaults, then `normalise` replaces any unusable value), atomic `Save`, `Prepared` for the path (`os.UserConfigDir()/digitron/settings.json`).
+- `sound/` — the key chirp and menu tick, embedded with `//go:embed` and played from memory through Qt Multimedia `QAudioSink`s (one pool of voices per sound, each at its own sample rate). `sound/gen` synthesises `tick.wav`; `key.wav` is cut from a recording with the ffmpeg command in the `sound.go` package comment.
+- `main.go` (startup, the `app` struct, settings, starting the sound), `draw.go` (scaling the frame to the window, the icon), `input.go` (mouse and keyboard), `wordmenu.go` (the menu's handlers) — the Qt layer.
+- `docs/previews/` — images drawn by `ui/preview_test.go`; the README's screenshot and logo come from here. `docs/concept.png` is the design concept the face was drawn from.
+
+## Technical debt
+
+Pay technical debt down as part of every feature and fix; do not let cruft build up.
+
+- When a feature is removed or changed, remove what it leaves unused: glyphs in `font.go`, fields of `View`, engine methods, settings, tests of old behaviour. Keep `go vet`, `staticcheck ./...` and `deadcode -test ./...` clean.
+- Keep files to one concern; split one that grows a second.
+- Keep this file, the README and the previews (`make screenshot`) in step with the code in the same change.
+- Anything made to help with the work that is worth running again (a generator, a sound cut) goes in the repository with a make target, a `go:generate` line or a note here, never only in a scratch folder.
+- Refactoring changes no behaviour; check with the tests and that `make screenshot` leaves the previews byte-identical.
+
+## Drawing
+
+- Everything visible is drawn in `ui` at art-pixel resolution with `canvas` primitives (`fill`, `bevel`, `text`, `tiny`, `key`) and the palette at the top of `render.go`. Never draw with Qt directly; new UI elements (like the menu) are pixel art in `ui`, styled like the keys.
+- `draw.go` stretches the frame to fill the window (each axis independently) using "sharp bilinear": a nearest-neighbour enlargement to a whole multiple, then one smooth shrink. Mouse positions map back with `toVirtual`.
+- Hit-testing uses the same rectangles that drawing uses (`Keys`, `MenuItems`, `View.Bits`).
+
+## Sound
+
+- Qt Multimedia takes about a second to start (its first `QAudioSink`). It is started from a single-shot timer after the first paint so the window opens at once; until then `app.sounds` is nil and every `Player` method is nil-safe. Do not move sound start back before `Show()`.
+- `QSoundEffect` plays only from files; it was replaced because nothing may be written to disk. Do not reintroduce files in caches or temp folders.
+- After changing `sound/gen`, run `go generate ./sound`; `TestUpToDate` fails if `tick.wav` drifts from the generator.
+- Pitch variation is per sound (`keySpread`, `tickSpread`); the user wants the key chirp almost constant.
+
+## Commands
+
+```sh
+make build        # go build -ldflags "-s -w" -o digitron .
+make run
+make test         # go test -race ./...
+make screenshot   # redraw docs/previews
+go generate ./sound
+```
+
+A PostToolUse hook in `.claude/settings.json` runs `make build` after every edit to a `.go` file, `go.mod`, `go.sum` or the `Makefile`, and reports build failures.
+
+## Building with miqt
+
+- miqt is cgo: building needs a C++ compiler and the Qt 6 development headers for `Qt6Widgets` and `Qt6MultimediaWidgets`, found via `pkg-config`. `README.md` lists the packages per distribution; keep it in step if the Qt modules used change.
+- The first build of the binding takes several minutes and prints many warnings from the Qt headers; search the output for `error`. Avoid `go clean -cache`.
+- Linux is the only platform tested. Avoid Linux-only assumptions where a portable Go or Qt API exists.
+
+## miqt conventions
+
+- Import as `qt "github.com/mappu/miqt/qt6"` and `github.com/mappu/miqt/qt6/multimedia`.
+- Overloaded C++ constructors and methods become numbered Go functions (`NewQAudioSink3`, `NewQRect4`); check the generated source for the right number rather than guessing.
+- Memory: objects from `NewQ...` constructors are never freed by Go, so short-lived ones need `Delete()`. Values returned by methods and static functions (`ev.Position()`, `ev.AngleDelta()`, `QPixmap_FromImage(...)`) already have a finalizer (`GoGC()` in the generated code); calling `Delete()` on them is a double free that crashes at a later garbage collection. Check the generated function before deleting anything.
+- Do not delete a Qt object from inside one of its own signal handlers (for example a `QTimer` in its `OnTimeout`).
+- Qt objects must only be touched from the GUI thread.

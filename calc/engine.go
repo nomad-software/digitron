@@ -48,14 +48,11 @@ func New() *Engine {
 
 // ---- queries --------------------------------------------------------------
 
-func (e *Engine) Err() error         { return e.err }
-func (e *Engine) HasMemory() bool    { return e.mem.R.Sign() != 0 }
-func (e *Engine) Typing() bool       { return e.typing }
-func (e *Engine) Entry() string      { return e.entry }
-func (e *Engine) Value() Value       { return e.shown }
-func (e *Engine) Approx() bool       { return e.shown.Approx }
-func (e *Engine) OpenParens() int    { return e.depth() }
-func (e *Engine) MemoryValue() Value { return e.mem }
+func (e *Engine) Err() error      { return e.err }
+func (e *Engine) HasMemory() bool { return e.mem.R.Sign() != 0 }
+func (e *Engine) Value() Value    { return e.shown }
+func (e *Engine) Approx() bool    { return e.shown.Approx }
+func (e *Engine) OpenParens() int { return e.depth() }
 
 // Display returns the main display content.
 func (e *Engine) Display() Formatted {
@@ -80,9 +77,6 @@ func (e *Engine) CopyText() string {
 	}
 	return ExactString(e.shown, e.Base, e.Width)
 }
-
-// DigitValid reports whether digit d (0-15) or '.' can be typed in Base.
-func (e *Engine) DigitValid(d int) bool { return d < e.Base }
 
 func (e *Engine) exprString(toks []token) string {
 	var parts []string
@@ -139,11 +133,7 @@ func (e *Engine) fail(err error) {
 	e.typing = false
 }
 
-func (e *Engine) setShown(v Value) {
-	e.shown = v
-}
-
-// startFresh prepares for a new operand.
+// beginOperand prepares for a new operand.
 func (e *Engine) beginOperand() {
 	if e.justEval {
 		e.tokens = nil
@@ -189,9 +179,6 @@ func (e *Engine) Point() {
 	}
 	if strings.Contains(e.entry, ".") {
 		return
-	}
-	if e.entry == "" || e.entry == "-" {
-		e.entry += "0"
 	}
 	e.entry += "."
 	e.typing = true
@@ -307,15 +294,16 @@ func (e *Engine) Negate() {
 		return
 	}
 	if e.typing && e.Base == 10 {
+		// Change the sign of what is being typed, unless the result does
+		// not fit the word (-128 has no +128 in 8 bits).
+		next := "-" + e.entry
 		if strings.HasPrefix(e.entry, "-") {
-			e.entry = e.entry[1:]
-		} else {
-			e.entry = "-" + e.entry
+			next = e.entry[1:]
 		}
-		if !e.entryFits(e.entry) {
-			e.entry = strings.TrimPrefix(e.entry, "-")
+		if !e.entryFits(next) {
 			return
 		}
+		e.entry = next
 		e.syncEntry()
 		return
 	}
@@ -673,9 +661,6 @@ func (e *Engine) Paste(s string) bool {
 	}
 	if neg {
 		r.Neg(r)
-	}
-	if e.Base != 10 && !r.IsInt() {
-		r.SetInt(new(big.Int).Quo(r.Num(), r.Denom()))
 	}
 	e.beginOperand()
 	e.setOperand(Value{R: r})

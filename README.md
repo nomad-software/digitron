@@ -50,10 +50,12 @@ correctly. It is written in Go with a Qt 6 interface using the
   in front, with `_`, `,` or spaces between digits, and fractions such as
   `22/7` in decimal.
 - **Sound:** every key press makes a short retro chirp, like an old
-  mainframe terminal. Moving through the word-size menu makes a soft, dull
-  tick. Each plays at a slightly different pitch every time, so it never
-  sounds mechanical. Both sounds are built into the program. It can be turned off in the
-  [settings](#settings).
+  mainframe terminal, and moving through the word-size menu makes a soft,
+  dull tick. Each plays at a very slightly different pitch every time, so
+  it never sounds mechanical. Both sounds are built into the program, and
+  can be turned off in the [settings](#settings). The sound starts a moment
+  after the window opens, so that the window can open at once; a key
+  pressed in that first second makes no sound.
 - **Resizing:** the calculator stretches to fill the window.
 - **Remembers** the window size and the word size between runs. See
   [Settings](#settings).
@@ -146,8 +148,8 @@ xcode-select --install
 brew install go pkgconf qt
 ```
 
-The `qt` formula is Qt 6, Multimedia included. If `pkg-config` cannot find it afterwards, tell it
-where Homebrew put Qt:
+The `qt` formula is Qt 6, Multimedia included. If `pkg-config` cannot find
+it afterwards, tell it where Homebrew put Qt:
 
 ```sh
 export PKG_CONFIG_PATH="$(brew --prefix qt)/lib/pkgconfig:$PKG_CONFIG_PATH"
@@ -246,6 +248,9 @@ with:
 ```sh
 make screenshot
 ```
+
+The logo is also the window icon. `docs/concept.png` is the concept the
+calculator's face was drawn from.
 
 ## License
 

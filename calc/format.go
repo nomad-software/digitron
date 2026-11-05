@@ -112,19 +112,13 @@ func ExactString(v Value, base, width int) string {
 	return f.String()
 }
 
-// Bits describes the binary-display view of a value.
-type Bits struct {
-	// Bits[i] is bit i (LSB first).
-	Bits []bool
-	Frac bool // value had a fractional part that is not shown
-}
-
-// BitsOf returns the width-bit two's-complement pattern of v's integer part.
-func BitsOf(v Value, width int) Bits {
+// BitsOf returns the width-bit two's-complement pattern of v's integer
+// part; bit i of the pattern is element i, least significant first.
+func BitsOf(v Value, width int) []bool {
 	u := unsigned(v.Trunc(), width)
-	b := Bits{Bits: make([]bool, width), Frac: !v.R.IsInt()}
+	bits := make([]bool, width)
 	for i := range width {
-		b.Bits[i] = u.Bit(i) == 1
+		bits[i] = u.Bit(i) == 1
 	}
-	return b
+	return bits
 }

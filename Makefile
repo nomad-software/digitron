@@ -29,4 +29,3 @@ screenshot:
 
 clean:
 	rm -f $(BINARY)
-	rm -rf build
