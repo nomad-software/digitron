@@ -44,6 +44,11 @@ correctly. It is written in Go with a Qt 6 interface using the
 - **Memory:** MC, MR, M+ and M−.
 - **The expression** being worked out is shown above the result, and stays
   there after `=`.
+- **Repeated `=`** does the last operation again, as on a desk calculator:
+  `2 + 3 =` gives 5, and each `=` after it adds 3 again (8, 11, …). Type a
+  new number and press `=` to do it to that instead: `2 + 3 = 7 =` is 10. It
+  is the last operation outside any brackets, so `1 + 2 × 3 = =` multiplies
+  by 3 again. AC forgets it.
 - **The whole display is used:** a result is shown exactly when it fits the
   27 characters of the main display, and otherwise rounded to as many
   decimal places as fill it, wherever the point is, with `≈` shown. So

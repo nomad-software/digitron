@@ -40,6 +40,12 @@ type Engine struct {
 	err      error
 	justEval bool
 	trail    string // expression shown after '='
+
+	// The operation = repeats: the last operator worked out by =, and the
+	// operand on its right ("+ 3" of "2 + 3 ="), while hasRepeat.
+	repeatOp  Op
+	repeatRHS Value
+	hasRepeat bool
 }
 
 func New() *Engine {
@@ -454,14 +460,37 @@ func (e *Engine) RParen() {
 	}
 }
 
-// Equals evaluates the whole expression, closing any open groups.
+// Equals evaluates the whole expression, closing any open groups, and
+// remembers its last operation. With no expression, straight after = or
+// with only a number typed since, it does that operation again: 2 + 3 = = is
+// 8, and 2 + 3 = 7 = is 10.
 func (e *Engine) Equals() {
 	if e.err != nil {
 		return
 	}
-	v, ok := e.commit()
-	if !ok {
-		return
+	var v Value
+	if e.hasRepeat && len(e.tokens) == 0 {
+		lhs := e.shown
+		if e.hasCur {
+			lhs = e.cur
+		}
+		toks := []token{{kind: tNum, v: lhs}, {kind: tOp, op: e.repeatOp}, {kind: tNum, v: e.repeatRHS}}
+		var err error
+		if v, err = e.eval(toks); err != nil {
+			e.fail(err)
+			return
+		}
+		e.typing = false
+		e.trail = e.exprString(toks) + " ="
+	} else {
+		toks, ok := e.pending()
+		if !ok {
+			return
+		}
+		if v, ok = e.commit(toks); !ok {
+			return
+		}
+		e.remember(toks)
 	}
 	e.cur = v
 	e.hasCur = true
@@ -469,13 +498,35 @@ func (e *Engine) Equals() {
 	e.justEval = true
 }
 
-// commit evaluates everything pending and clears the expression.
-func (e *Engine) commit() (Value, bool) {
-	e.typing = false
-	if e.justEval {
-		return e.cur, true
+// remember keeps the last operation of an expression for = to repeat: its
+// last operator outside any group, and the value of what follows it.
+func (e *Engine) remember(toks []token) {
+	d := 0
+	for i := len(toks) - 1; i >= 0; i-- {
+		switch toks[i].kind {
+		case tRParen:
+			d++
+		case tLParen:
+			d--
+		case tOp:
+			if d == 0 {
+				// It was worked out already, as part of the whole.
+				rhs, _ := e.eval(toks[i+1:])
+				e.repeatOp, e.repeatRHS, e.hasRepeat = toks[i].op, rhs, true
+				return
+			}
+		}
 	}
-	toks := append([]token(nil), e.tokens...)
+}
+
+// pending returns the expression to be worked out, complete: what is typed
+// added, a dangling operator or ( dropped, and open groups closed. Straight
+// after =, there is none, and ok is false.
+func (e *Engine) pending() (toks []token, ok bool) {
+	if e.justEval {
+		return nil, false
+	}
+	toks = append([]token(nil), e.tokens...)
 	if e.hasCur {
 		toks = append(toks, token{kind: tNum, v: e.cur})
 	}
@@ -497,6 +548,12 @@ func (e *Engine) commit() (Value, bool) {
 	for ; d > 0; d-- {
 		toks = append(toks, token{kind: tRParen})
 	}
+	return toks, true
+}
+
+// commit works out a pending expression and clears it.
+func (e *Engine) commit(toks []token) (Value, bool) {
+	e.typing = false
 	v, err := e.eval(toks)
 	if err != nil {
 		e.fail(err)
@@ -538,6 +595,7 @@ func (e *Engine) AllClear() {
 	e.err = nil
 	e.justEval = false
 	e.trail = ""
+	e.hasRepeat = false
 }
 
 // ---- memory ---------------------------------------------------------------
@@ -556,9 +614,12 @@ func (e *Engine) memAdd(sign int) {
 	if e.err != nil {
 		return
 	}
-	v, ok := e.commit()
-	if !ok {
-		return
+	// Straight after = there is nothing pending, and the result is taken.
+	v := e.cur
+	if toks, ok := e.pending(); ok {
+		if v, ok = e.commit(toks); !ok {
+			return
+		}
 	}
 	e.cur, e.hasCur, e.shown, e.justEval = v, true, v, true
 	r := new(big.Rat)
