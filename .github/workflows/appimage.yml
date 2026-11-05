@@ -33,7 +33,9 @@ jobs:
     container: ubuntu:22.04
     steps:
       # Besides the tools, these are the system libraries Qt's own build
-      # uses, most of which go into the AppImage with it.
+      # uses, most of which go into the AppImage with it. The last line is
+      # what Qt Multimedia's FFmpeg plugin and Qt's build of FFmpeg need
+      # (readelf -d plugins/multimedia/libffmpegmediaplugin.so lib/libav*).
       - name: Install what building needs
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -46,7 +48,8 @@ jobs:
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 \
             libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libx11-xcb1 \
             libwayland-client0 libwayland-cursor0 libwayland-egl1 \
-            libpulse0 libpulse-mainloop-glib0
+            libpulse0 libpulse-mainloop-glib0 \
+            libxrandr2 libxext6 libdrm2
 
       - uses: actions/cache@v4
         id: qt
