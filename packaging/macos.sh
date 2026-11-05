@@ -26,6 +26,7 @@ APP="$BUILD/Digitron.app"
 OUTPUT="Digitron-$VERSION-$ARCH.dmg"
 MACDEPLOYQT="${MACDEPLOYQT:-$(command -v macdeployqt || echo "$(brew --prefix qtbase)/bin/macdeployqt")}"
 BREW_LIB="$(brew --prefix)/lib"
+BREW_FRAMEWORKS="$(brew --prefix)/Frameworks"
 
 if [ ! -x "$MACDEPLOYQT" ]; then
 	echo "There is no macdeployqt at $MACDEPLOYQT: install Homebrew's qtbase, or qttools if it is not in that." >&2
@@ -81,8 +82,9 @@ sed -e "s/VERSION/$SHORT/g" packaging/macos/Info.plist > "$APP/Contents/Info.pli
 # uses, and the libraries of Homebrew those use in turn, and has the program
 # find them there instead of where they were built with. Some of Homebrew's
 # libraries name others through @rpath, which it finds in Homebrew's folder
-# of libraries, where all of them are linked.
-"$MACDEPLOYQT" "$APP" -verbose=1 -libpath="$BREW_LIB"
+# of libraries, where all of them are linked, or, for Qt's frameworks (such
+# as QtSvg, which the SVG icon plugin uses), in its folder of frameworks.
+"$MACDEPLOYQT" "$APP" -verbose=1 -libpath="$BREW_LIB" -libpath="$BREW_FRAMEWORKS"
 
 # machO lists the programs and libraries in the app, one to a line.
 machO() {
@@ -102,10 +104,11 @@ machO | while read -r file; do
 	esac
 done
 
-# Without Qt Multimedia's backend, which is FFmpeg, the app would start and
-# make no sound.
-if ! ls "$APP/Contents/PlugIns/multimedia/"libffmpegmediaplugin*.dylib >/dev/null 2>&1; then
-	echo "Missing from the app: Qt Multimedia's FFmpeg plugin" >&2
+# Without a backend for Qt Multimedia the app would start and make no sound.
+# Homebrew builds Qt Multimedia for macOS without FFmpeg, so its backend is
+# Apple's (darwin, AVFoundation and Core Audio); one with FFmpeg will do too.
+if ! ls "$APP/Contents/PlugIns/multimedia/"lib*mediaplugin*.dylib >/dev/null 2>&1; then
+	echo "Missing from the app: a backend plugin for Qt Multimedia" >&2
 	find "$APP/Contents/PlugIns" -name '*.dylib' | sort >&2
 	exit 1
 fi

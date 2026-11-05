@@ -298,7 +298,8 @@ It is built by a GitHub workflow (`.github/workflows/macos.yml`), which runs
 > Run workflow). The script builds the program, makes `Digitron.app` with
 its icon (from `packaging/macos/digitron.png`) and `Info.plist` (from
 `packaging/macos/Info.plist`), copies Qt into it with Qt's `macdeployqt`,
-checks that Qt Multimedia's FFmpeg plugin is in it and that nothing in it
+checks that a backend for Qt Multimedia is in it (Apple's, as Homebrew
+builds Qt Multimedia for macOS without FFmpeg) and that nothing in it
 still uses a library from outside it, signs it, checks that it starts, and
 makes the disk image. It needs the macOS the workflow builds on (macOS 15)
 or later, which the script works out from what is in the app and writes
