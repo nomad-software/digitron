@@ -71,7 +71,6 @@ func MenuItemAt(p image.Point) int {
 // OpenMenu shows the word-size menu with the current size selected.
 func (v *View) OpenMenu(e *calc.Engine) {
 	v.Menu = true
-	v.MenuDown = -1
 	v.MenuSel = 0
 	for i, it := range MenuItems {
 		if it.Width == e.Width {
@@ -83,7 +82,6 @@ func (v *View) OpenMenu(e *calc.Engine) {
 // CloseMenu hides the word-size menu.
 func (v *View) CloseMenu() {
 	v.Menu = false
-	v.MenuDown = -1
 }
 
 // MenuMove moves the menu selection by d items, stopping at the ends.
@@ -141,6 +139,6 @@ func (c canvas) menu(e *calc.Engine, v *View) {
 
 	for i, it := range MenuItems {
 		k := Key{Label: fmt.Sprintf("%d BIT", it.Width), Rect: it.Rect, Dark: i != v.MenuSel, Scale: 1}
-		c.key(k, v.MenuDown == i, it.Width == e.Width, true)
+		c.key(k, false, it.Width == e.Width, true)
 	}
 }

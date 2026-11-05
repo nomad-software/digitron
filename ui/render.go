@@ -12,10 +12,24 @@ import (
 	"digitron/calc"
 )
 
+// The layout from the top down, in art pixels. Everything below the binary
+// display is placed from its foot, so changing its height moves the keys
+// and the bottom of the case with it.
+const (
+	binGlassH = 28 // height of the binary display's glass
+
+	binTop      = 110                // top of the binary display's glass
+	binFoot     = binTop + binGlassH // its foot
+	keysSep     = binFoot + 9        // the line between it and the keys
+	smallKeysY  = keysSep + 9        // top of the two rows of small keys
+	mainKeysY   = smallKeysY + 62    // top of the main keys
+	bottomLedge = mainKeysY + 154    // the ledge below them
+)
+
 // Virtual screen size in art pixels.
 const (
 	W = 372
-	H = 412
+	H = bottomLedge + 26
 )
 
 func rgb(hex uint32) color.RGBA {
@@ -64,7 +78,7 @@ type Key struct {
 // Display regions (glass, inside the bezel).
 var (
 	MainGlass = image.Rect(16, 52, 356, 94)
-	BinGlass  = image.Rect(16, 110, 356, 152)
+	BinGlass  = image.Rect(16, binTop, 356, binFoot)
 )
 
 // Keys is the full keyboard layout.
@@ -75,7 +89,7 @@ func buildKeys() []Key {
 	small := func(row int, ids, labels []string) {
 		for i := range ids {
 			x := 13 + i*35
-			y := 170 + row*28
+			y := smallKeysY + row*28
 			ks = append(ks, Key{ID: ids[i], Label: labels[i], Rect: image.Rect(x, y, x+31, y+22), Dark: true, Scale: 1})
 		}
 	}
@@ -96,7 +110,7 @@ func buildKeys() []Key {
 		for c, spec := range row {
 			id, label, _ := strings.Cut(spec, ":")
 			x := 14 + c*50
-			y := 232 + r*38
+			y := mainKeysY + r*38
 			rc := image.Rect(x, y, x+44, y+32)
 			if id == "eq" {
 				rc = image.Rect(x, y, x+94, y+70)
@@ -130,13 +144,15 @@ type View struct {
 	MainScroll int    // first visible line of an overflowing main display
 
 	// Word-size menu.
-	Menu     bool // the menu is open
-	MenuSel  int  // highlighted item (hover or keyboard)
-	MenuDown int  // item held down by the mouse, or -1
+	Menu    bool // the menu is open
+	MenuSel int  // highlighted item (hover or keyboard)
 
 	// Filled in by Render:
 	Bits []BitHit
 }
+
+// bigFit is how many characters the main display holds in its big digits.
+var bigFit = (MainGlass.Dx() - 8 + 2) / (advance * 2)
 
 const (
 	mainVisibleLines = 3
@@ -242,15 +258,15 @@ func (c canvas) body() {
 	// Section separators, as on the concept.
 	c.hline(4, W-4, 102, cBodyLo)
 	c.hline(4, W-4, 103, cBodyHi)
-	c.hline(4, W-4, 161, cBodyLo)
-	c.hline(4, W-4, 162, cBodyHi)
+	c.hline(4, W-4, keysSep, cBodyLo)
+	c.hline(4, W-4, keysSep+1, cBodyHi)
 
 	// Bottom ledge.
-	c.hline(2, W-2, 386, cBodyLo2)
-	c.hline(2, W-2, 387, cBodyHi)
-	c.fill(image.Rect(2, 388, W-2, H-2), mix(cBody, cBodyLo, 0.35))
-	c.hline(2, W-2, 400, cBodyLo)
-	c.hline(2, W-2, 401, cBodyHi)
+	c.hline(2, W-2, bottomLedge, cBodyLo2)
+	c.hline(2, W-2, bottomLedge+1, cBodyHi)
+	c.fill(image.Rect(2, bottomLedge+2, W-2, H-2), mix(cBody, cBodyLo, 0.35))
+	c.hline(2, W-2, bottomLedge+14, cBodyLo)
+	c.hline(2, W-2, bottomLedge+15, cBodyHi)
 }
 
 // lcd draws a bezel and glass around a glass rectangle.
@@ -380,7 +396,8 @@ func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 	if e.HasMemory() {
 		status += " M"
 	}
-	if e.Approx() && e.Err() == nil {
+	f := e.Display()
+	if (e.Approx() || f.Rounded) && e.Err() == nil {
 		status += " ≈"
 	}
 	if d := e.OpenParens(); d > 0 {
@@ -402,13 +419,7 @@ func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 		return
 	}
 
-	f := e.Display()
 	cells := f.Cells
-	if f.Truncated {
-		cells = append(cells[:len(cells):len(cells)], calc.Cell{Ch: '…'})
-	}
-
-	bigFit := (g.Dx() - 8 + 2) / (advance * 2)
 	if len(cells) <= bigFit {
 		v.MainScroll = 0
 		x := g.Max.X - 4 - (len(cells)*advance*2 - 2)

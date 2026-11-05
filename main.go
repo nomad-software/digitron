@@ -45,7 +45,6 @@ type app struct {
 	soundPending bool
 
 	mouseKey string
-	swallow  bool // ignore the release of the click that closed the menu
 	flash    *qt.QTimer
 }
 

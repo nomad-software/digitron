@@ -8,11 +8,12 @@ Digitron is a retro programmer's calculator: exact rational arithmetic, BIN/OCT/
 
 ## Layout
 
-- `calc/` — the engine. No dependency on Qt or the UI. Values are exact `big.Rat`s; `Width` is always one of `calc.Widths` (8, 16, 32, 64) and integers wrap to it (`wrap`). Non-integers pass through `wrap` untouched, so DEC keeps exact fractions. Precedence follows C.
-- `ui/` — draws the whole calculator into an `image.RGBA` "virtual screen" of `ui.W`×`ui.H` (372×412) art pixels, and owns the layout: `Keys`, `MainGlass`, `BinGlass`, the word-size menu (`menu.go`), the logo (`icon.go`) and both fonts (`font.go`). No Qt here either. `View` holds UI state that is not engine state.
+- `calc/` — the engine. No dependency on Qt or the UI. Values are exact `big.Rat`s; `Width` is always one of `calc.Widths` (8, 16, 32, 64) and integers wrap to it (`wrap`). Non-integers pass through `wrap` untouched, so DEC keeps exact fractions. Precedence follows C. `Format` fits a decimal to `DisplayCells` (the big digits of the main display; a ui test checks they agree): exact if it fits, otherwise rounded to fill it, setting `Formatted.Rounded`, which shows ≈. Square roots are kept to `SqrtDigits` places but always shown rounded.
+- `ui/` — draws the whole calculator into an `image.RGBA` "virtual screen" of `ui.W`×`ui.H` (372×398) art pixels, and owns the layout: `Keys`, `MainGlass`, `BinGlass`, the word-size menu (`menu.go`), the logo (`icon.go`) and both fonts (`font.go`). No Qt here either. `View` holds UI state that is not engine state.
 - `settings/` — the JSON settings file, in Prism's and ApeMail's pattern: `Defaults`, `Load` (falls back to defaults, then `normalise` replaces any unusable value), atomic `Save`, `Prepared` for the path (`os.UserConfigDir()/digitron/settings.json`).
 - `sound/` — the key chirp and menu tick, embedded with `//go:embed` and played from memory through Qt Multimedia `QAudioSink`s (one pool of voices per sound, each at its own sample rate). `sound/gen` synthesises `tick.wav`; `key.wav` is cut from a recording with the ffmpeg command in the `sound.go` package comment.
 - `main.go` (startup, the `app` struct, settings, starting the sound), `draw.go` (scaling the frame to the window, the icon), `input.go` (mouse and keyboard), `wordmenu.go` (the menu's handlers) — the Qt layer.
+- `packaging/`, `.github/workflows/` — the AppImage and macOS app, ported from Delta's: `appimage.sh` (linuxdeploy, run by the workflow on Ubuntu 22.04 with Qt's own build of Qt 6.9), `macos.sh` (macdeployqt, Homebrew's `qtbase` and `qtmultimedia`), the desktop entry, `AppRun`, and `macos/Info.plist` and `macos/digitron.png` (drawn by `make icons`, checked by `TestPackagedIconsAreCurrent`). Both scripts refuse to finish without Qt Multimedia's FFmpeg plugin, and check that the result starts. `make appimage` fails on Arch: its Qt Multimedia uses the system FFmpeg, whose dependency tree includes a library that crashes the loader once linuxdeploy has patched it. That is expected; releases come from the workflow.
 - `docs/previews/` — images drawn by `ui/preview_test.go`; the README's screenshot and logo come from here. `docs/concept.png` is the design concept the face was drawn from.
 
 ## Technical debt
@@ -45,6 +46,9 @@ make build        # go build -ldflags "-s -w" -o digitron .
 make run
 make test         # go test -race ./...
 make screenshot   # redraw docs/previews
+make icons        # redraw packaging/macos/digitron.png from the logo
+make appimage     # packaging/appimage.sh (releases: the AppImage workflow)
+make macos        # packaging/macos.sh, on a Mac with Apple Silicon
 go generate ./sound
 ```
 
@@ -52,7 +56,8 @@ A PostToolUse hook in `.claude/settings.json` runs `make build` after every edit
 
 ## Building with miqt
 
-- miqt is cgo: building needs a C++ compiler and the Qt 6 development headers for `Qt6Widgets` and `Qt6MultimediaWidgets`, found via `pkg-config`. `README.md` lists the packages per distribution; keep it in step if the Qt modules used change.
+- miqt is cgo: building needs a C++ compiler and the Qt 6 development headers for `Qt6Widgets` and `Qt6MultimediaWidgets`, found via `pkg-config`. `README.md` lists the packages per distribution; keep it, the workflows (the `aqt` modules, the Homebrew formulae) and the packaging scripts' checks in step if the Qt modules used change.
+- macOS builds turn off Go's asynchronous preemption (see `packaging/macos.sh`): its signal crashed Qt programs there.
 - The first build of the binding takes several minutes and prints many warnings from the Qt headers; search the output for `error`. Avoid `go clean -cache`.
 - Linux is the only platform tested. Avoid Linux-only assumptions where a portable Go or Qt API exists.
 

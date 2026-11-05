@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"digitron/ui"
 )
 
 func TestPath(t *testing.T) {
@@ -79,7 +81,7 @@ func TestNormalise(t *testing.T) {
 	}{
 		{"too narrow", Settings{Width: 100, Height: 900, WordSize: 32}, Settings{Width: d.Width, Height: d.Height, WordSize: 32}},
 		{"too short", Settings{Width: 900, Height: 100, WordSize: 32}, Settings{Width: d.Width, Height: d.Height, WordSize: 32}},
-		{"smallest", Settings{Width: 372, Height: 412, WordSize: 8}, Settings{Width: 372, Height: 412, WordSize: 8}},
+		{"smallest", Settings{Width: 372, Height: 398, WordSize: 8}, Settings{Width: 372, Height: 398, WordSize: 8}},
 		{"word size too big", Settings{Width: 900, Height: 900, WordSize: 128}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
 		{"unbounded word size", Settings{Width: 900, Height: 900, WordSize: 0}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
 		{"odd word size", Settings{Width: 900, Height: 900, WordSize: 12}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
@@ -159,5 +161,17 @@ func TestSaveFails(t *testing.T) {
 	entries, _ := os.ReadDir(dir)
 	if len(entries) != 1 {
 		t.Errorf("Save left %d files behind", len(entries)-1)
+	}
+}
+
+// TestSizesMatchArt checks the window's default and least sizes against the
+// size of the calculator's art, so that a change to the layout is not left
+// behind here.
+func TestSizesMatchArt(t *testing.T) {
+	if minWidth != ui.W || minHeight != ui.H {
+		t.Errorf("least size %d×%d, art %d×%d", minWidth, minHeight, ui.W, ui.H)
+	}
+	if defaultWidth != 2*ui.W || defaultHeight != 2*ui.H {
+		t.Errorf("default size %d×%d, want twice the art, %d×%d", defaultWidth, defaultHeight, 2*ui.W, 2*ui.H)
 	}
 }

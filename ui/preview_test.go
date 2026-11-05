@@ -90,3 +90,11 @@ func writePNG(t *testing.T, path string, img *image.RGBA, s int) {
 		t.Fatal(err)
 	}
 }
+
+// TestDisplayCellsFit checks that the main display has room in its big
+// digits for all the characters the engine fits a decimal to.
+func TestDisplayCellsFit(t *testing.T) {
+	if bigFit < calc.DisplayCells {
+		t.Errorf("the main display holds %d big characters, the engine fits decimals to %d", bigFit, calc.DisplayCells)
+	}
+}

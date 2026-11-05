@@ -37,16 +37,23 @@ correctly. It is written in Go with a Qt 6 interface using the
 - **Precedence like C:** `|` is lower than `^`, which is lower than `&`, then
   shifts, then `+` and `−`, then `×` and `÷`. `1 + 2 << 3` is 24.
 - **Parentheses**, with the number still open shown on the display.
-- **Square roots** to 64 decimal places, marked with `≈` because they are
-  not exact.
+- **Square roots** worked out to 64 decimal places, so that what is made
+  from them stays accurate, and marked with `≈` because they are not
+  exact.
 - **Percent** like a desk calculator: `200 + 10%` is 220, `50 × 10%` is 5.
 - **Memory:** MC, MR, M+ and M−.
 - **The expression** being worked out is shown above the result, and stays
   there after `=`.
-- **Long results** wrap onto smaller lines in the main display, which you
-  scroll with the mouse wheel.
+- **The whole display is used:** a result is shown exactly when it fits the
+  27 characters of the main display, and otherwise rounded to as many
+  decimal places as fill it, wherever the point is, with `≈` shown. So
+  `1 ÷ 97` is `0.0103092783505154639175258` and `123456789 ÷ 97` is
+  `1272750.4020618556701030928`. A long binary number, or a long number
+  being typed, wraps onto smaller lines, which you scroll with the mouse
+  wheel.
 - **Copy and paste:** Ctrl+C copies the exact value, as a fraction such as
-  `1/7` if its decimal repeats. Ctrl+V takes numbers with `0x`, `0o` or `0b`
+  `1/7` or `1/97` if its decimal repeats or is rounded on the display; a
+  square root is copied as it is shown. Ctrl+V takes numbers with `0x`, `0o` or `0b`
   in front, with `_`, `,` or spaces between digits, and fractions such as
   `22/7` in decimal.
 - **Sound:** every key press makes a short retro chirp, like an old
@@ -197,6 +204,84 @@ The first build compiles the whole Qt binding and takes several minutes,
 printing a lot of compiler warnings from the Qt headers, which can be
 ignored. Later builds use the Go build cache and take a few seconds.
 
+## AppImage
+
+Releases for Linux are an [AppImage](https://appimage.org): one file with
+Digitron and the Qt libraries it needs inside it, which runs without
+installing anything.
+
+```sh
+chmod +x Digitron-*-x86_64.AppImage
+./Digitron-*-x86_64.AppImage
+```
+
+It is built by a GitHub workflow (`.github/workflows/appimage.yml`), which runs
+`packaging/appimage.sh` on Ubuntu 22.04 with Qt's own build of Qt 6.9:
+
+- Pushing a tag that starts with `v` builds it and attaches it to a release of
+  that name: `git tag v1.0.0 && git push origin v1.0.0`.
+- It can also be run by hand from the Actions tab of the repository (AppImage >
+  Run workflow), which leaves the AppImage as an artifact of the run to
+  download.
+
+It runs under both X11 and Wayland, using Wayland where the session is one.
+To use the other, set `QT_QPA_PLATFORM` to `xcb` or `wayland` when starting
+it. Qt Multimedia, which plays the sounds, and its FFmpeg backend are in it;
+the script will not make an AppImage without them, nor one that does not
+start.
+
+The C library of the system (glibc) is not put in the AppImage, as it cannot
+be reliably: it has to match the system's graphics drivers. It is built on an
+old distribution instead, and runs on any with glibc 2.35 or later (Ubuntu
+22.04, Debian 12, Fedora 36 and anything newer, or rolling).
+
+`make appimage` runs the same script locally, but an AppImage built on a newer
+system only runs on systems at least as new. On a distribution whose Qt
+Multimedia uses the system's FFmpeg, such as Arch, it is not made at all:
+that FFmpeg brings a large tree of libraries with it, one of which does not
+survive being packed, and the AppImage crashes as it starts, which the
+script's check catches. Use the workflow, with Qt's own build, for releases.
+
+## macOS app
+
+Releases for macOS are a disk image, `Digitron-*-arm64.dmg`, for Macs with
+Apple Silicon. Open it and drag Digitron into Applications. Macs with Intel
+processors are not supported.
+
+The app is not signed with an Apple Developer ID or notarised by Apple, so
+the first time it is opened macOS says that it cannot check it for malicious
+software and will not open it. Either:
+
+- Open System Settings > Privacy & Security, where Digitron is named
+  beneath Security, and choose Open Anyway, or
+- take away the mark macOS gives what is downloaded, in Terminal:
+
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/Digitron.app
+  ```
+
+Either is only needed once. It is signed ad hoc, which a Mac with Apple
+Silicon needs to run it at all.
+
+It is built by a GitHub workflow (`.github/workflows/macos.yml`), which runs
+`packaging/macos.sh` on a Mac with Apple Silicon and Homebrew's Qt, when a
+`v` tag is pushed, as the AppImage is, or by hand from the Actions tab (macOS
+> Run workflow). The script builds the program, makes `Digitron.app` with
+its icon (from `packaging/macos/digitron.png`) and `Info.plist` (from
+`packaging/macos/Info.plist`), copies Qt into it with Qt's `macdeployqt`,
+checks that Qt Multimedia's FFmpeg plugin is in it and that nothing in it
+still uses a library from outside it, signs it, checks that it starts, and
+makes the disk image. It needs the macOS the workflow builds on (macOS 15)
+or later, which the script works out from what is in the app and writes
+into its `Info.plist`.
+
+`make macos` runs the same script on a Mac with Apple Silicon and
+`brew install go pkgconf qtbase qtmultimedia`: only the parts of Qt Digitron
+uses, as with the whole of Homebrew's `qt` the plugins of its other modules
+go into the app too, with what they use. The icon of the macOS app is the
+logo, enlarged within Apple's margin, and is drawn by `make icons`; a test
+fails if the logo changes without it being run.
+
 ## Running
 
 ```sh
@@ -221,7 +306,7 @@ no such place, the file is kept in the current directory.
 ```json
 {
   "width": 744,
-  "height": 824,
+  "height": 796,
   "maximized": false,
   "wordSize": 64,
   "sound": true

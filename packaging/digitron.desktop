@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Digitron
+Comment=A retro calculator for programmers
+Exec=digitron
+Icon=digitron
+Categories=Utility;Calculator;
+Terminal=false
+StartupWMClass=digitron

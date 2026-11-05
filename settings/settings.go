@@ -13,13 +13,14 @@ import (
 	"digitron/calc"
 )
 
-// The default size of the window, twice the size of the calculator's art,
-// and the least size it can be, the size of the art.
+// The default size of the window, twice the size of the calculator's art
+// (ui.W × ui.H), and the least size it can be, the size of the art. A test
+// checks that they match.
 const (
 	defaultWidth  = 744
-	defaultHeight = 824
+	defaultHeight = 796
 	minWidth      = 372
-	minHeight     = 412
+	minHeight     = 398
 )
 
 // defaultWordSize is the word size, in bits, the calculator starts with.

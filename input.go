@@ -23,19 +23,23 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 		// While the menu is open a click either picks an item or, anywhere
 		// else, dismisses the menu without reaching the keys underneath.
 		if i := ui.MenuItemAt(pt); i >= 0 {
-			a.view.MenuSel, a.view.MenuDown = i, i
+			a.view.MenuSel = i
 			a.sounds.Key()
+			a.chooseWidth()
 		} else if !pt.In(ui.MenuRect) {
 			a.view.CloseMenu()
-			a.swallow = true
 		}
 		a.w.Update()
 		return
 	}
+	// A key acts as it goes down, as on a real calculator, so that what is
+	// heard and what happens always go together; it stays down until the
+	// button is let go.
 	if k, ok := ui.KeyAt(pt); ok {
 		a.mouseKey = k.ID
 		a.view.Pressed = k.ID
 		a.sounds.Key()
+		a.press(k.ID)
 		a.w.Update()
 		return
 	}
@@ -48,27 +52,10 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 	}
 }
 
+// mouseRelease lets a key held down by the mouse back up.
 func (a *app) mouseRelease(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
-	pt := a.eventPoint(ev.QSinglePointEvent)
-	if a.swallow {
-		a.swallow = false
-		return
-	}
-	if a.view.Menu {
-		if d := a.view.MenuDown; d >= 0 {
-			a.view.MenuDown = -1
-			if ui.MenuItemAt(pt) == d {
-				a.chooseWidth()
-			}
-			a.w.Update()
-		}
-		return
-	}
 	if a.mouseKey == "" {
 		return
-	}
-	if k, ok := ui.KeyAt(pt); ok && k.ID == a.mouseKey {
-		a.press(k.ID)
 	}
 	a.mouseKey = ""
 	a.view.Pressed = ""

@@ -131,8 +131,9 @@ func TestSqrtApprox(t *testing.T) {
 	if !e.Approx() {
 		t.Fatal("√2 should be approx")
 	}
-	if !strings.HasPrefix(e.Display().String(), "1.41421356237309504880168872420969807856967187537694") {
-		t.Fatalf("√2 = %s", e.Display())
+	// It is kept to SqrtDigits places, however few are shown.
+	if got := e.Value().R.FloatString(60); !strings.HasPrefix(got, "1.41421356237309504880168872420969807856967187537694") {
+		t.Fatalf("√2 is kept as %s", got)
 	}
 	press(e, "*2=")
 	if !e.Approx() {

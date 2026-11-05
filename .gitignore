@@ -4,3 +4,6 @@
 # Settings written to the current directory when the system has no
 # configuration folder.
 /settings.json
+
+# What make appimage and make macos build in.
+/build/
