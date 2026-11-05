@@ -656,8 +656,10 @@ func (e *Engine) SetBase(b int) {
 }
 
 // SetWidth changes word size, wrapping current values into range in BIN,
-// OCT and HEX; DEC has no word size and keeps them. Sizes not in Widths are
-// ignored.
+// OCT and HEX. DEC has no word size and keeps whole numbers as they are, but
+// a fraction becomes the nearest number the floating-point format of the
+// new size holds, as the binary display shows it; one too big for it is an
+// error. Sizes not in Widths are ignored.
 func (e *Engine) SetWidth(w int) {
 	if !slices.Contains(Widths, w) {
 		return
@@ -669,6 +671,18 @@ func (e *Engine) SetWidth(w int) {
 	e.cur = bound(e.cur, e.Base, w)
 	e.shown = bound(e.shown, e.Base, w)
 	e.mem = bound(e.mem, e.Base, w)
+	if e.Base == 10 && e.err == nil {
+		shown, err := toFloat(e.shown, w)
+		if err != nil {
+			e.fail(err)
+			return
+		}
+		e.shown = shown
+		if e.hasCur {
+			// What is being worked with is what is shown.
+			e.cur = e.shown
+		}
+	}
 }
 
 // ToggleBit flips bit i of the displayed value (binary display click). A

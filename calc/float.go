@@ -1,6 +1,9 @@
 package calc
 
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+)
 
 // FloatFormat is the IEEE 754 binary floating-point format of a word size:
 // a sign bit, then ExpBits of exponent, then MantBits of mantissa (the
@@ -76,6 +79,56 @@ func floatPattern(r *big.Rat, f FloatFormat) *big.Int {
 		mag.SetBit(mag, f.ExpBits+f.MantBits, 1)
 	}
 	return mag
+}
+
+// FloatRangeError is the error of a fraction too big for the floating-point
+// format of a word size.
+type FloatRangeError struct{ Width int }
+
+func (err FloatRangeError) Error() string {
+	return fmt.Sprintf("TOO BIG FOR FP%d", err.Width)
+}
+
+// toFloat returns v as the nearest number the floating-point format of the
+// word size holds, marked approximate if that is not v itself. A whole
+// number, which DEC keeps as it is, is returned unchanged.
+func toFloat(v Value, width int) (Value, error) {
+	if v.IsInt() {
+		return v, nil
+	}
+	f := FloatFormats[width]
+	r, ok := floatValue(floatPattern(v.R, f), f)
+	if !ok {
+		return Value{}, FloatRangeError{width}
+	}
+	return Value{R: r, Approx: v.Approx || r.Cmp(v.R) != 0}, nil
+}
+
+// floatValue returns the number a pattern of f stands for, and false for an
+// infinity, which has none. Patterns that are not numbers are never made.
+func floatValue(pattern *big.Int, f FloatFormat) (*big.Rat, bool) {
+	bias := 1<<(f.ExpBits-1) - 1
+	// field returns the bits of the pattern from bit from on.
+	field := func(from, bits int) *big.Int {
+		mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(bits)), big.NewInt(1))
+		return mask.And(mask, new(big.Int).Rsh(pattern, uint(from)))
+	}
+	exp, mant := int(field(f.MantBits, f.ExpBits).Int64()), field(0, f.MantBits)
+	if exp == 1<<f.ExpBits-1 {
+		return nil, false
+	}
+	r := new(big.Rat).SetInt(mant)
+	if exp == 0 {
+		// Subnormal: units of 2^(1-bias-MantBits).
+		r.Mul(r, pow2(1-bias-f.MantBits))
+	} else {
+		r.Add(r, pow2(f.MantBits))
+		r.Mul(r, pow2(exp-bias-f.MantBits))
+	}
+	if pattern.Bit(f.ExpBits+f.MantBits) == 1 {
+		r.Neg(r)
+	}
+	return r, true
 }
 
 // pow2 returns 2^e, for e of either sign.

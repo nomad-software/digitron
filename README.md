@@ -37,8 +37,11 @@ correctly. It is written in Go with a Qt 6 interface using the
   The status line shows the base and the word size. BIN, OCT and HEX keep to
   it, and switching to them from DEC drops a fraction and wraps the value into
   the word. DEC has no word size: it works with whole numbers and fractions of
-  any size, exactly, and the word size only says how the binary display shows
-  them. A shift left of more than 65,536 places in DEC is refused.
+  any size, exactly, and the word size says how the binary display shows
+  them. Choosing a word size with a fraction showing makes it the nearest
+  number that size's floating-point format holds, marked `≈` if that changed
+  it: `0.1` at 16 bits becomes `0.0999755859375`. A fraction too big for the
+  format, such as 70000.5 at 16 bits, is an error. A shift left of more than 65,536 places in DEC is refused.
 - **The binary display** shows a whole number's bits in two's complement,
   grouped in fours. When a DEC result has a fractional part it switches to
   floating point, labelled `FP64`, `FP32`, `FP16` or `FP8` for the word

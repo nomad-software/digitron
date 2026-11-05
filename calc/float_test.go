@@ -106,3 +106,98 @@ func TestIsFloat(t *testing.T) {
 		t.Error("HEX has no fractions")
 	}
 }
+
+// TestFloatValueRoundTrip decodes every pattern of half precision and FP8,
+// and random ones of single and double precision, and checks that it is
+// the number Go makes of it, where Go has the format, and that it encodes
+// to the same pattern again.
+func TestFloatValueRoundTrip(t *testing.T) {
+	check := func(width int, p uint64) {
+		f := FloatFormats[width]
+		pattern := new(big.Int).SetUint64(p)
+		r, ok := floatValue(pattern, f)
+		exp := (p >> f.MantBits) & (1<<f.ExpBits - 1)
+		if isInf := exp == 1<<f.ExpBits-1; ok == isInf {
+			t.Fatalf("%d bits, %x: finite %v", width, p, ok)
+		}
+		if !ok {
+			return
+		}
+		switch width {
+		case 64:
+			if want := new(big.Rat).SetFloat64(math.Float64frombits(p)); r.Cmp(want) != 0 {
+				t.Fatalf("%016x is %s, Go says %s", p, r, want)
+			}
+		case 32:
+			if want := new(big.Rat).SetFloat64(float64(math.Float32frombits(uint32(p)))); r.Cmp(want) != 0 {
+				t.Fatalf("%08x is %s, Go says %s", p, r, want)
+			}
+		}
+		again := floatPattern(r, f).Uint64()
+		if negZero := p == 1<<(width-1); again != p && !negZero {
+			t.Fatalf("%d bits: %x is %s, which encodes as %x", width, p, r, again)
+		}
+	}
+	for p := range uint64(1 << 16) {
+		check(16, p)
+	}
+	for p := range uint64(1 << 8) {
+		check(8, p)
+	}
+	rnd := rand.New(rand.NewSource(2))
+	for range 20000 {
+		check(32, uint64(rnd.Uint32()))
+		check(64, rnd.Uint64())
+	}
+}
+
+// TestWordSizeRoundsFraction checks that choosing a word size in DEC makes
+// a fraction the nearest number its floating-point format holds.
+func TestWordSizeRoundsFraction(t *testing.T) {
+	e := New()
+	press(e, "1/10=")
+	e.SetWidth(16)
+	if got := e.Display().String(); got != "0.0999755859375" || !e.Approx() {
+		t.Errorf("0.1 as FP16 shows %q, approx %v", got, e.Approx())
+	}
+	e.SetWidth(64) // a wider format holds it exactly, and it stays
+	if got := e.Display().String(); got != "0.0999755859375" {
+		t.Errorf("back at 64 bits: %q", got)
+	}
+	press(e, "*10000000000000=") // and what is worked with is that number
+	if got := e.Display().String(); got != "999755859375" {
+		t.Errorf("0.0999755859375 × 10¹³ = %q", got)
+	}
+
+	e = New()
+	press(e, "1/3=")
+	e.SetWidth(32)
+	f32, _ := big.NewRat(1, 3).Float32()
+	if want := new(big.Rat).SetFloat64(float64(f32)); e.Value().R.Cmp(want) != 0 {
+		t.Errorf("1/3 as FP32 is %s, want %s", e.Value().R, want)
+	}
+
+	// A fraction the format holds already is left exact.
+	e = New()
+	press(e, "5/2=")
+	e.SetWidth(8)
+	if got := e.Display().String(); got != "2.5" || e.Approx() {
+		t.Errorf("2.5 as FP8 shows %q, approx %v", got, e.Approx())
+	}
+
+	// One too big for the format is an error.
+	e = New()
+	press(e, "70000.5")
+	e.SetWidth(16)
+	if e.Err() == nil || e.Err().Error() != "TOO BIG FOR FP16" {
+		t.Errorf("70000.5 as FP16 gave %v", e.Err())
+	}
+
+	// A whole number is kept as it is, as DEC has no word size.
+	e = New()
+	press(e, "70000")
+	e.SetWidth(8)
+	if got := e.Display().String(); got != "70000" || e.Err() != nil {
+		t.Errorf("70000 at 8 bits: %q, %v", got, e.Err())
+	}
+}
