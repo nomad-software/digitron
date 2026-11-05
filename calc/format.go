@@ -58,13 +58,15 @@ func Format(v Value, base, width int) Formatted {
 }
 
 // fitDecimal shows v exactly if it is exact and fits DisplayCells, marking a
-// repeating tail with Over. Otherwise it is rounded to as many decimal places
+// repeating tail with Over, or is a whole number. Otherwise it is rounded to as many decimal places
 // as fill DisplayCells after its sign, integer part and point, so that a
 // number with a long integer part has fewer places and a small one more. An
 // approximate value is always rounded, as its last places are not right.
 func fitDecimal(v Value) Formatted {
 	if !v.Approx {
-		if f := formatDecimal(v.R); !f.Truncated && len(f.Cells) <= DisplayCells {
+		// A whole number is never rounded: one too long for the display,
+		// which DEC can make, is shown whole on more lines.
+		if f := formatDecimal(v.R); v.IsInt() || (!f.Truncated && len(f.Cells) <= DisplayCells) {
 			return f
 		}
 	}

@@ -463,23 +463,39 @@ func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 
 // binDisplay shows the word's bits, most significant first. 8- and 16-bit
 // words fit one row in the big font; 32 and 64 bits use rows of 32 in the
-// mid-size bit font.
+// mid-size bit font. An integer's bits are grouped in fours; a fraction is
+// shown as floating point (calc.FloatBitsOf), labelled FP and the width,
+// with its sign, exponent and mantissa set apart and the mantissa grouped
+// in fours from its end. Only an integer's bits can be clicked.
 func (c canvas) binDisplay(e *calc.Engine, v *View) {
 	g := BinGlass
 	v.Bits = v.Bits[:0]
 	if e.Err() != nil {
 		return
 	}
-	bits := calc.BitsOf(e.Value(), e.Width)
+	float := e.IsFloat()
+	if !float && !e.FitsWord() {
+		// DEC has no word size, and this value does not fit the one chosen:
+		// its bits would mean nothing, so none are shown.
+		msg := fmt.Sprintf("BEYOND %d BITS", e.Width)
+		c.text(g.Min.X+(g.Dx()-textWidth(msg, 1))/2, g.Min.Y+(g.Dy()-glyphH)/2, msg, 1, cLCDDim)
+		return
+	}
+	var bits []bool
+	if float {
+		bits = calc.FloatBitsOf(e.Value(), e.Width)
+	} else {
+		bits = calc.BitsOf(e.Value(), e.Width)
+	}
 	n := len(bits)
 	perRow := min(n, bitsPerRow)
 	rows := (n + perRow - 1) / perRow
 
 	// glyph draws one bit; gw, gh are its size and bitAdv the column pitch.
 	var glyph func(x, y int, on bool, col color.RGBA)
-	var gw, gh, bitAdv, nibGap, rowGap int
+	var gw, gh, bitAdv, nibGap, fieldGap, rowGap int
 	if n <= 16 {
-		gw, gh, bitAdv, nibGap = glyphW*2, glyphH*2, 7*2, 5*2
+		gw, gh, bitAdv, nibGap, fieldGap = glyphW*2, glyphH*2, 7*2, 5*2, 9*2
 		glyph = func(x, y int, on bool, col color.RGBA) {
 			ch := '0'
 			if on {
@@ -488,12 +504,38 @@ func (c canvas) binDisplay(e *calc.Engine, v *View) {
 			c.glyph(x, y, ch, 2, col)
 		}
 	} else {
-		gw, gh, bitAdv, nibGap, rowGap = bitGlyphW, bitGlyphH, bitGlyphW+2, 4, 4
+		gw, gh, bitAdv, nibGap, fieldGap, rowGap = bitGlyphW, bitGlyphH, bitGlyphW+2, 4, 10, 4
 		glyph = c.bitGlyph
 	}
-	rowH := gh + rowGap
-	rowW := perRow*bitAdv - (bitAdv - gw) + (perRow/4-1)*nibGap
+	// gap is the space to the right of bit i, between it and bit i-1.
+	f := calc.FloatFormats[e.Width]
+	gap := func(i int) int {
+		switch {
+		case !float:
+			if i%4 == 0 {
+				return nibGap
+			}
+		case i == f.MantBits || i == f.MantBits+f.ExpBits:
+			return fieldGap
+		case i < f.MantBits && i%4 == 0:
+			return nibGap
+		}
+		return 0
+	}
+	// offset is how far left of the row's right edge bit i starts.
+	offset := func(lo, i int) int {
+		x := (i-lo+1)*bitAdv - (bitAdv - gw)
+		for k := lo + 1; k <= i; k++ {
+			x += gap(k)
+		}
+		return x
+	}
+	rowW := 0
+	for row := range rows {
+		rowW = max(rowW, offset(row*perRow, row*perRow+perRow-1))
+	}
 	right := g.Min.X + (g.Dx()+rowW)/2 // x just past the LSB column
+	rowH := gh + rowGap
 	top := g.Min.Y + (g.Dy()-(rows*rowH-rowGap)+1)/2
 
 	for vr := range rows {
@@ -503,19 +545,24 @@ func (c canvas) binDisplay(e *calc.Engine, v *View) {
 		y := top + vr*rowH
 		x := right
 		for i := lo; i <= hi; i++ {
-			j := i - lo
-			x = right - (j+1)*bitAdv + (bitAdv - gw) - (j/4)*nibGap
+			x = right - offset(lo, i)
 			col := cLCDGhost
 			if bits[i] {
 				col = cLCD
 			}
 			glyph(x, y, bits[i], col)
-			v.Bits = append(v.Bits, BitHit{Rect: image.Rect(x-1, y-1, x+gw+1, y+gh+1), Index: i})
+			if !float {
+				v.Bits = append(v.Bits, BitHit{Rect: image.Rect(x-1, y-1, x+gw+1, y+gh+1), Index: i})
+			}
 		}
-		// Bit-position labels: high index left of the row, low index right.
+		// Labels: the high bit's index left of the row, or, on the top row of
+		// a float, its format; the low bit's index right of it.
 		ly := y + (gh-tinyH)/2
-		hs := fmt.Sprint(hi)
-		c.tiny(x-5-len(hs)*tinyAdv, ly, hs, cLCDDim)
+		left := fmt.Sprint(hi)
+		if float && vr == 0 {
+			left = fmt.Sprintf("FP%d", e.Width)
+		}
+		c.tiny(x-5-len(left)*tinyAdv, ly, left, cLCDDim)
 		c.tiny(right+4, ly, fmt.Sprint(lo), cLCDDim)
 	}
 }

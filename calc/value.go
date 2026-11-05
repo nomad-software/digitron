@@ -12,6 +12,11 @@ import (
 // SqrtDigits is the number of decimal places used for irrational square roots.
 const SqrtDigits = 64
 
+// MaxShift is the most places a number can be shifted left in DEC, which
+// has no word size, so that a slip of the finger cannot ask for a number of
+// millions of digits.
+const MaxShift = 1 << 16
+
 // Value is an exact rational, optionally marked as approximate (it descends
 // from an irrational square root).
 type Value struct {
@@ -148,9 +153,15 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 		if op == OpShr {
 			s = -s
 		}
-		// Anything beyond the word width gives the same result as width+1.
-		lim := int64(width + 1)
-		s = max(-lim, min(lim, s))
+		if base != 10 {
+			// Anything beyond the word width gives the same result as width+1.
+			lim := int64(width + 1)
+			s = max(-lim, min(lim, s))
+		} else if s > MaxShift {
+			return Value{}, ErrShift
+		} else if lim := int64(a.R.Num().BitLen() + 1); s < -lim {
+			s = -lim // shifted right past every bit: 0, or -1
+		}
 		z := new(big.Int)
 		if s >= 0 {
 			z.Lsh(a.R.Num(), uint(s))
@@ -159,7 +170,16 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 		}
 		r.SetInt(z)
 	}
-	return wrap(Value{R: r, Approx: approx}, width), nil
+	return bound(Value{R: r, Approx: approx}, base, width), nil
+}
+
+// bound fits a value to the word size in BIN, OCT and HEX. DEC has no word
+// size, and a value of any size is kept.
+func bound(v Value, base, width int) Value {
+	if base == 10 {
+		return v
+	}
+	return wrap(v, width)
 }
 
 // Sqrt returns the exact square root when the value is a ratio of perfect

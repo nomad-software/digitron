@@ -218,23 +218,25 @@ func (e *Engine) parseEntry(s string) (Value, bool) {
 	return Value{R: r}, true
 }
 
-// entryFits checks a candidate entry against the word size. In BIN/OCT/HEX
-// any pattern up to Width bits is accepted (and read as two's complement);
-// in DEC the integer part must fit the signed range.
+// entryFits checks a candidate entry. In BIN/OCT/HEX any pattern up to
+// Width bits is accepted (and read as two's complement); DEC has no word
+// size, and any number is.
 func (e *Engine) entryFits(s string) bool {
 	v, ok := e.parseEntry(s)
 	if !ok {
 		return false
 	}
-	ip := v.Trunc()
-	if e.Base != 10 {
-		return ip.BitLen() <= e.Width
-	}
+	return e.Base == 10 || v.Trunc().BitLen() <= e.Width
+}
+
+// FitsWord reports whether the value shown fits the word size, as a signed
+// two's-complement number of Width bits, so that its bits can be shown. In
+// BIN, OCT and HEX it always does; in DEC, which has no word size, it may
+// not.
+func (e *Engine) FitsWord() bool {
+	x := e.shown.Trunc()
 	lim := new(big.Int).Lsh(big.NewInt(1), uint(e.Width-1))
-	if ip.Sign() < 0 {
-		return new(big.Int).Neg(ip).Cmp(lim) <= 0
-	}
-	return ip.Cmp(lim) < 0
+	return x.Cmp(lim) < 0 && x.Cmp(new(big.Int).Neg(lim)) >= 0
 }
 
 func (e *Engine) syncEntry() {
@@ -287,7 +289,7 @@ func (e *Engine) takeOperand() Value {
 }
 
 func (e *Engine) setOperand(v Value) {
-	v = wrap(v, e.Width)
+	v = bound(v, e.Base, e.Width)
 	e.cur = v
 	e.hasCur = true
 	e.typing = false
@@ -300,16 +302,12 @@ func (e *Engine) Negate() {
 		return
 	}
 	if e.typing && e.Base == 10 {
-		// Change the sign of what is being typed, unless the result does
-		// not fit the word (-128 has no +128 in 8 bits).
-		next := "-" + e.entry
+		// Change the sign of what is being typed.
 		if strings.HasPrefix(e.entry, "-") {
-			next = e.entry[1:]
+			e.entry = e.entry[1:]
+		} else {
+			e.entry = "-" + e.entry
 		}
-		if !e.entryFits(next) {
-			return
-		}
-		e.entry = next
 		e.syncEntry()
 		return
 	}
@@ -628,7 +626,7 @@ func (e *Engine) memAdd(sign int) {
 	} else {
 		r.Sub(e.mem.R, v.R)
 	}
-	e.mem = wrap(Value{R: r, Approx: e.mem.Approx || v.Approx}, e.Width)
+	e.mem = bound(Value{R: r, Approx: e.mem.Approx || v.Approx}, e.Base, e.Width)
 }
 
 func (e *Engine) MemAdd() { e.memAdd(1) }
@@ -636,7 +634,8 @@ func (e *Engine) MemSub() { e.memAdd(-1) }
 
 // ---- modes ----------------------------------------------------------------
 
-// SetBase switches number base. Leaving DEC truncates a fractional value.
+// SetBase switches number base. Leaving DEC, which has no word size, drops
+// a fraction and wraps the value into the word.
 func (e *Engine) SetBase(b int) {
 	if e.Base == b {
 		return
@@ -646,17 +645,19 @@ func (e *Engine) SetBase(b int) {
 	}
 	e.Base = b
 	if b != 10 && e.err == nil {
-		if !e.shown.IsInt() {
-			e.shown = Value{R: new(big.Rat).SetInt(e.shown.Trunc()), Approx: e.shown.Approx}
+		toWord := func(v Value) Value {
+			return wrap(Value{R: new(big.Rat).SetInt(v.Trunc()), Approx: v.Approx}, e.Width)
 		}
-		if e.hasCur && !e.cur.IsInt() {
-			e.cur = Value{R: new(big.Rat).SetInt(e.cur.Trunc()), Approx: e.cur.Approx}
+		e.shown = toWord(e.shown)
+		if e.hasCur {
+			e.cur = toWord(e.cur)
 		}
 	}
 }
 
-// SetWidth changes word size, wrapping current values into range. Sizes
-// not in Widths are ignored.
+// SetWidth changes word size, wrapping current values into range in BIN,
+// OCT and HEX; DEC has no word size and keeps them. Sizes not in Widths are
+// ignored.
 func (e *Engine) SetWidth(w int) {
 	if !slices.Contains(Widths, w) {
 		return
@@ -665,14 +666,15 @@ func (e *Engine) SetWidth(w int) {
 	if e.typing {
 		e.typing = false
 	}
-	e.cur = wrap(e.cur, w)
-	e.shown = wrap(e.shown, w)
-	e.mem = wrap(e.mem, w)
+	e.cur = bound(e.cur, e.Base, w)
+	e.shown = bound(e.shown, e.Base, w)
+	e.mem = bound(e.mem, e.Base, w)
 }
 
-// ToggleBit flips bit i of the displayed value (binary display click).
+// ToggleBit flips bit i of the displayed value (binary display click). A
+// value too big for the word has no bits shown, and is left alone.
 func (e *Engine) ToggleBit(i int) {
-	if e.err != nil {
+	if e.err != nil || !e.FitsWord() {
 		return
 	}
 	wasEval := e.justEval
@@ -715,7 +717,7 @@ func (e *Engine) Paste(s string) bool {
 		if !ok {
 			return false
 		}
-		if i.BitLen() > e.Width {
+		if e.Base != 10 && i.BitLen() > e.Width {
 			return false
 		}
 		r = new(big.Rat).SetInt(i)

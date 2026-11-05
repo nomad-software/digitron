@@ -63,7 +63,7 @@ var font5x7 = map[rune][7]string{
 	'?': {".###.", "#...#", "....#", "...#.", "..#..", ".....", "..#.."},
 }
 
-// Tiny 3x5 digits for bit-position labels.
+// Tiny 3x5 digits for bit-position labels, and the letters of FP.
 var font3x5 = map[rune][5]string{
 	'0': {"###", "#.#", "#.#", "#.#", "###"},
 	'1': {".#.", "##.", ".#.", ".#.", "###"},
@@ -77,6 +77,8 @@ var font3x5 = map[rune][5]string{
 	'9': {"###", "#.#", "###", "..#", "###"},
 	'+': {"...", ".#.", "###", ".#.", "..."},
 	'-': {"...", "...", "###", "...", "..."},
+	'F': {"###", "#..", "##.", "#..", "#.."},
+	'P': {"##.", "#.#", "##.", "#..", "#.."},
 }
 
 // Mid-size 6x9 bit digits for the 32- and 64-bit binary display.

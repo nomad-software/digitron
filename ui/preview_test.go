@@ -53,6 +53,22 @@ func TestPreview(t *testing.T) {
 				Press(e, k)
 			}
 		},
+		"float64": func(e *calc.Engine, v *View) {
+			for _, k := range []string{"1", "div", "1", "0", "eq"} {
+				Press(e, k)
+			}
+		},
+		"float16": func(e *calc.Engine, v *View) {
+			e.SetWidth(16)
+			for _, k := range []string{"1", "div", "3", "eq"} {
+				Press(e, k)
+			}
+		},
+		"beyond": func(e *calc.Engine, v *View) {
+			for _, k := range []string{"1", "shl", "1", "0", "0", "eq"} {
+				Press(e, k)
+			}
+		},
 		"wsmenu": func(e *calc.Engine, v *View) {
 			for _, k := range []string{"4", "2"} {
 				Press(e, k)

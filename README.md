@@ -14,10 +14,13 @@ correctly. It is written in Go with a Qt 6 interface using the
   are shown with a bar over the part that repeats, so `1 ÷ 7` is
   0.1̅4̅2̅8̅5̅7̅, not 0.14285714285714285.
 - **Made for programmers.** Binary, octal, decimal and hexadecimal are one
-  key away. Word sizes run from 8 to 64 bits in two's complement, and values
-  wrap at the word size the way they do in your code.
-- **Every bit on show.** The second display always shows the bits of the
-  current value, and clicking a bit flips it.
+  key away. In BIN, OCT and HEX, word sizes run from 8 to 64 bits in two's
+  complement, and values wrap at the word size the way they do in your code.
+  DEC has no limit at all: `2⁶³ + 1` and `1 << 100` come out exactly.
+- **Every bit on show.** The second display shows the bits of the current
+  value, and clicking a bit flips it. A fraction is shown as the IEEE 754
+  floating-point number your code would hold, sign, exponent and mantissa
+  set apart.
 - **A calculator you want to look at.** Digitron is real low-resolution
   pixel art, scaled to sharp square pixels at any size, with keys that move
   and chirp when you press them.
@@ -31,7 +34,20 @@ correctly. It is written in Go with a Qt 6 interface using the
   that BIN, OCT and HEX work in whole numbers, so a fraction is dropped. Keys
   that mean nothing in the current base are greyed out.
 - **Word sizes:** 8, 16, 32 and 64 bits, chosen from a menu on the WS key.
-  The status line shows the base and the word size.
+  The status line shows the base and the word size. BIN, OCT and HEX keep to
+  it, and switching to them from DEC drops a fraction and wraps the value into
+  the word. DEC has no word size: it works with whole numbers and fractions of
+  any size, exactly, and the word size only says how the binary display shows
+  them. A shift left of more than 65,536 places in DEC is refused.
+- **The binary display** shows a whole number's bits in two's complement,
+  grouped in fours. When a DEC result has a fractional part it switches to
+  floating point, labelled `FP64`, `FP32`, `FP16` or `FP8` for the word
+  size: IEEE 754 double, single or half precision, or for 8 bits FP8 E5M2.
+  The bits are split into sign, exponent and mantissa, and are the nearest
+  float to the exact value, rounding as IEEE 754 does, down to subnormals and
+  up to infinity. Its bits cannot be clicked. A whole number too big for the
+  word size has no bits worth showing, and the display says `BEYOND 64 BITS`
+  (or the size chosen) until it fits again.
 - **Bitwise operators:** AND, OR, XOR, NOT and shifts. `>>` is an arithmetic
   shift, so it keeps the sign.
 - **Precedence like C:** `|` is lower than `^`, which is lower than `&`, then
@@ -53,9 +69,9 @@ correctly. It is written in Go with a Qt 6 interface using the
   27 characters of the main display, and otherwise rounded to as many
   decimal places as fill it, wherever the point is, with `≈` shown. So
   `1 ÷ 97` is `0.0103092783505154639175258` and `123456789 ÷ 97` is
-  `1272750.4020618556701030928`. A long binary number, or a long number
-  being typed, wraps onto smaller lines, which you scroll with the mouse
-  wheel.
+  `1272750.4020618556701030928`. A whole number is never rounded: a long one,
+  as DEC can make, a long binary number, or a long number being typed, wraps
+  onto smaller lines, which you scroll with the mouse wheel.
 - **Copy and paste:** Ctrl+C copies the exact value, as a fraction such as
   `1/7` or `1/97` if its decimal repeats or is rounded on the display; a
   square root is copied as it is shown. Ctrl+V takes numbers with `0x`, `0o` or `0b`
