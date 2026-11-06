@@ -50,7 +50,15 @@ func TestFitDisplay(t *testing.T) {
 		{"big integer part, fraction", "9223372036854775806/97=", "95086309658296657.793814433", true},
 		{"tiny", "1/97/1000000000=", "0.0000000000103092783505155", true},
 		{"tiny, repeating", "1/3/1000000000/1000000000/1000=", "0.0000000000000000000003", false},
-		{"rounds to 0", "1/97/1000000000/1000000000/1000000000=", "0", true},
+		// Too small for the digits after its zeros to show: in scientific
+		// notation, rounded only if the mantissa is.
+		{"too small", "1/97/1000000000/1000000000/1000000000=", "1.030927835051546391753E-29", true},
+		{"too small, exact", "1/1000000000000000000000000000000=", "1E-30", false},
+		{"too small, negative", "1n/3/1000000000000000000000000000000=", "-3.33333333333333333333E-31", true},
+		{"six digits left: not yet", "1/97/1000000000000000000=", "0.0000000000000000000103093", true},
+		{"five digits left: scientific", "1/7/100000000000000000000=", "1.428571428571428571429E-21", true},
+		{"rounds up to the next power", "0.999999999999999999999999999999/1000000000000000000000000=", "1E-24", true},
+		{"and keeps its sign", "0.999999999999999999999999999999n/1000000000000000000000000=", "-1E-24", true},
 		{"carry", "0.99999999999999999999999999999+0=", "1", true},
 		{"root of a big number", "9223372036854775807r", "3037000499.9760496922867524", true},
 	} {
@@ -81,5 +89,18 @@ func TestHugeWholeNumberNotRounded(t *testing.T) {
 	f := e.Display()
 	if f.Rounded || f.String() != "1267650600228229401496703205376" {
 		t.Errorf("2^100 shows %q, rounded %v; want it whole and exact", f, f.Rounded)
+	}
+}
+
+func TestRepeatingOverline(t *testing.T) {
+	e := New()
+	press(e, "1/6=")
+	f := e.Display()
+	if f.String() != "0.16" || f.Cells[2].Over || !f.Cells[3].Over {
+		t.Fatalf("1/6 cells: %+v", f.Cells)
+	}
+	press(e, "*6=")
+	if e.Display().String() != "1" {
+		t.Fatalf("1/6*6 = %s", e.Display())
 	}
 }

@@ -75,6 +75,11 @@ func TestPreview(t *testing.T) {
 				Press(e, k)
 			}
 		},
+		"tiny": func(e *calc.Engine, v *View) {
+			for _, k := range []string{"1", "div", "9", "7", "div", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "div", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "div", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "eq"} {
+				Press(e, k)
+			}
+		},
 		"error": func(e *calc.Engine, v *View) {
 			for _, k := range []string{"1", "div", "0", "eq"} {
 				Press(e, k)

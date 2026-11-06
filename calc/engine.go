@@ -76,14 +76,6 @@ func (e *Engine) Trail() string {
 	return e.exprString(e.tokens)
 }
 
-// CopyText is the exact current value for the clipboard.
-func (e *Engine) CopyText() string {
-	if e.typing {
-		return e.entry
-	}
-	return ExactString(e.shown, e.Base, e.Width)
-}
-
 func (e *Engine) exprString(toks []token) string {
 	var parts []string
 	for _, t := range toks {
@@ -249,6 +241,13 @@ func (e *Engine) syncEntry() {
 	e.shown = v
 }
 
+// entryIsZero reports whether the number being typed is 0, such as 0. or
+// -0.0, which has no sign.
+func (e *Engine) entryIsZero() bool {
+	v, _ := e.parseEntry(e.entry)
+	return v.R.Sign() == 0
+}
+
 // Backspace removes the last typed character.
 func (e *Engine) Backspace() {
 	if e.err != nil || !e.typing {
@@ -258,6 +257,10 @@ func (e *Engine) Backspace() {
 	e.entry = string(r[:len(r)-1])
 	if e.entry == "" || e.entry == "-" {
 		e.entry = "0"
+	}
+	if e.entryIsZero() {
+		// Zero has no sign (see Negate): -0.05 backspaced to -0. is 0.
+		e.entry = strings.TrimPrefix(e.entry, "-")
 	}
 	e.syncEntry()
 }
@@ -302,7 +305,11 @@ func (e *Engine) Negate() {
 		return
 	}
 	if e.typing && e.Base == 10 {
-		// Change the sign of what is being typed.
+		// Change the sign of what is being typed, unless it is 0, which,
+		// as in the Windows calculator, has none: type the digits first.
+		if e.entryIsZero() {
+			return
+		}
 		if strings.HasPrefix(e.entry, "-") {
 			e.entry = e.entry[1:]
 		} else {
@@ -326,7 +333,8 @@ func (e *Engine) Sqrt() {
 		return
 	}
 	if e.Base != 10 && !v.IsInt() {
-		v = Value{R: new(big.Rat).SetInt(v.Trunc()), Approx: true}
+		// setOperand cuts it to a whole number, which is then not exact.
+		v.Approx = true
 	}
 	e.setOperand(v)
 }
@@ -377,6 +385,11 @@ func (e *Engine) Percent() {
 		r.Mul(r, left.R)
 		approx = approx || left.Approx
 	}
+	if tooBig(r) {
+		e.fail(ErrTooBig)
+		return
+	}
+	// In OCT and HEX, setOperand cuts a fraction towards zero, as ÷ does.
 	e.setOperand(Value{R: r, Approx: approx})
 }
 
@@ -626,6 +639,11 @@ func (e *Engine) memAdd(sign int) {
 	} else {
 		r.Sub(e.mem.R, v.R)
 	}
+	if tooBig(r) {
+		// Memory is left as it was.
+		e.fail(ErrTooBig)
+		return
+	}
 	e.mem = bound(Value{R: r, Approx: e.mem.Approx || v.Approx}, e.Base, e.Width)
 }
 
@@ -635,28 +653,40 @@ func (e *Engine) MemSub() { e.memAdd(-1) }
 // ---- modes ----------------------------------------------------------------
 
 // SetBase switches number base. Leaving DEC, which has no word size, drops
-// a fraction and wraps the value into the word.
+// fractions and wraps what the engine holds into the word (toWord).
 func (e *Engine) SetBase(b int) {
 	if e.Base == b {
 		return
 	}
-	if e.typing {
-		e.typing = false
-	}
+	e.typing = false
 	e.Base = b
-	if b != 10 && e.err == nil {
-		toWord := func(v Value) Value {
-			return wrap(Value{R: new(big.Rat).SetInt(v.Trunc()), Approx: v.Approx}, e.Width)
-		}
-		e.shown = toWord(e.shown)
-		if e.hasCur {
-			e.cur = toWord(e.cur)
+	if e.err == nil {
+		e.toWord()
+	}
+}
+
+// toWord fits everything the engine holds to the word in OCT and HEX: what
+// is shown, the operand, the operands of the expression still to be worked
+// out, memory, and the operand = repeats. Each loses any fraction and wraps,
+// so that none is left to turn up later in a result. DEC has no word size
+// and keeps them as they are.
+func (e *Engine) toWord() {
+	e.shown = bound(e.shown, e.Base, e.Width)
+	e.cur = bound(e.cur, e.Base, e.Width)
+	e.mem = bound(e.mem, e.Base, e.Width)
+	if e.hasRepeat {
+		e.repeatRHS = bound(e.repeatRHS, e.Base, e.Width)
+	}
+	for i := range e.tokens {
+		if e.tokens[i].kind == tNum {
+			e.tokens[i].v = bound(e.tokens[i].v, e.Base, e.Width)
 		}
 	}
 }
 
-// SetWidth changes word size, wrapping current values into range in OCT
-// and HEX. DEC has no word size and keeps whole numbers as they are, but
+// SetWidth changes word size, wrapping everything the engine holds into
+// range in OCT and HEX (toWord). DEC has no word size and keeps whole
+// numbers as they are, but
 // a fraction becomes the nearest number the floating-point format of the
 // new size holds, as the binary display shows it; one too big for it is an
 // error. Sizes not in Widths are ignored.
@@ -665,12 +695,8 @@ func (e *Engine) SetWidth(w int) {
 		return
 	}
 	e.Width = w
-	if e.typing {
-		e.typing = false
-	}
-	e.cur = bound(e.cur, e.Base, w)
-	e.shown = bound(e.shown, e.Base, w)
-	e.mem = bound(e.mem, e.Base, w)
+	e.typing = false
+	e.toWord()
 	if e.Base == 10 && e.err == nil {
 		shown, err := toFloat(e.shown, w)
 		if err != nil {
@@ -702,46 +728,6 @@ func (e *Engine) ToggleBit(i int) {
 	u.SetBit(u, i, u.Bit(i)^1)
 	e.setOperand(ratInt(wrapInt(u, e.Width)))
 	e.justEval = wasEval
-}
-
-// Paste parses text as a number in the current base. It accepts 0x/0o/0b
-// prefixes, "_", "," and spaces as separators, and "a/b" fractions in DEC.
-func (e *Engine) Paste(s string) bool {
-	if e.err != nil {
-		return false
-	}
-	s = strings.ToLower(strings.TrimSpace(s))
-	s = strings.NewReplacer("_", "", ",", "", " ", "", "\n", "", "\t", "").Replace(s)
-	neg := strings.HasPrefix(s, "-")
-	s = strings.TrimPrefix(s, "-")
-	base := e.Base
-	for p, b := range map[string]int{"0x": 16, "0o": 8, "0b": 2} {
-		if strings.HasPrefix(s, p) {
-			s, base = s[2:], b
-		}
-	}
-	var r *big.Rat
-	if base == 10 {
-		var ok bool
-		if r, ok = new(big.Rat).SetString(s); !ok {
-			return false
-		}
-	} else {
-		i, ok := new(big.Int).SetString(s, base)
-		if !ok {
-			return false
-		}
-		if e.Base != 10 && i.BitLen() > e.Width {
-			return false
-		}
-		r = new(big.Rat).SetInt(i)
-	}
-	if neg {
-		r.Neg(r)
-	}
-	e.beginOperand()
-	e.setOperand(Value{R: r})
-	return true
 }
 
 // ---- evaluation -----------------------------------------------------------

@@ -12,11 +12,6 @@ import (
 // SqrtDigits is the number of decimal places used for irrational square roots.
 const SqrtDigits = 64
 
-// MaxShift is the most places a number can be shifted left in DEC, which
-// has no word size, so that a slip of the finger cannot ask for a number of
-// millions of digits.
-const MaxShift = 1 << 16
-
 // Value is an exact rational, optionally marked as approximate (it descends
 // from an irrational square root).
 type Value struct {
@@ -42,8 +37,27 @@ var (
 	ErrDivZero    = errors.New("DIV BY ZERO")
 	ErrNotInteger = errors.New("NOT INTEGER")
 	ErrNegSqrt    = errors.New("NEGATIVE ROOT")
-	ErrShift      = errors.New("SHIFT TOO BIG")
+	ErrTooBig     = errors.New("TOO BIG")
 )
+
+// MaxBits is the most bits the top or the bottom of a fraction may have,
+// about 315,000 decimal digits (maxDigits). DEC has no word size, and
+// without a limit a long shift, or a few presses that square a number again
+// and again, would ask for billions of digits and stop the calculator; a
+// result beyond it is ErrTooBig.
+const MaxBits = 1 << 20
+
+// maxDigits is about how many decimal digits MaxBits bits make.
+var maxDigits = digitsOfBits(MaxBits)
+
+// digitsOfBits is about how many decimal digits a number of the given bits
+// has: log10(2) is 0.30103.
+func digitsOfBits(bits int) int { return bits * 30103 / 100000 }
+
+// tooBig reports whether r is beyond MaxBits.
+func tooBig(r *big.Rat) bool {
+	return r.Num().BitLen() > MaxBits || r.Denom().BitLen() > MaxBits
+}
 
 // Op is a binary operator.
 type Op int
@@ -82,13 +96,11 @@ func (o Op) String() string {
 	return [...]string{"+", "−", "×", "÷", "AND", "OR", "XOR", "<<", ">>"}[o]
 }
 
-// wrap reduces an integer to a signed two's-complement value of the given
-// bit width; non-integers pass through untouched.
+// wrap reduces a value to a signed two's-complement integer of the given
+// bit width, as a C cast does: a fraction is cut towards zero first, so
+// that OCT and HEX never hold one, hidden behind a whole number shown.
 func wrap(v Value, width int) Value {
-	if !v.R.IsInt() {
-		return v
-	}
-	return Value{R: new(big.Rat).SetInt(wrapInt(v.R.Num(), width)), Approx: v.Approx}
+	return Value{R: new(big.Rat).SetInt(wrapInt(v.Trunc(), width)), Approx: v.Approx}
 }
 
 func wrapInt(x *big.Int, width int) *big.Int {
@@ -121,11 +133,7 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 		if b.R.Sign() == 0 {
 			return Value{}, ErrDivZero
 		}
-		r.Quo(a.R, b.R)
-		if base != 10 && !r.IsInt() {
-			// Programmer bases are integer-only: truncate toward zero.
-			r.SetInt(new(big.Int).Quo(r.Num(), r.Denom()))
-		}
+		r.Quo(a.R, b.R) // in OCT and HEX, bound below cuts it towards zero
 	case OpAnd, OpOr, OpXor:
 		if !a.R.IsInt() || !b.R.IsInt() {
 			return Value{}, ErrNotInteger
@@ -145,11 +153,15 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 		if !a.R.IsInt() || !b.R.IsInt() {
 			return Value{}, ErrNotInteger
 		}
+		// A count past MaxBits either way does what one just past it does:
+		// shifts everything out, or more than any result may have.
 		n := b.R.Num()
-		if !n.IsInt64() {
-			return Value{}, ErrShift
+		s := int64(MaxBits + 1)
+		if n.CmpAbs(big.NewInt(s)) <= 0 {
+			s = n.Int64()
+		} else if n.Sign() < 0 {
+			s = -s
 		}
-		s := n.Int64()
 		if op == OpShr {
 			s = -s
 		}
@@ -157,8 +169,8 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 			// Anything beyond the word width gives the same result as width+1.
 			lim := int64(width + 1)
 			s = max(-lim, min(lim, s))
-		} else if s > MaxShift {
-			return Value{}, ErrShift
+		} else if s > MaxBits && a.R.Sign() != 0 {
+			return Value{}, ErrTooBig
 		} else if lim := int64(a.R.Num().BitLen() + 1); s < -lim {
 			s = -lim // shifted right past every bit: 0, or -1
 		}
@@ -169,6 +181,9 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 			z.Rsh(a.R.Num(), uint(-s)) // arithmetic shift (floors negatives)
 		}
 		r.SetInt(z)
+	}
+	if tooBig(r) {
+		return Value{}, ErrTooBig
 	}
 	return bound(Value{R: r, Approx: approx}, base, width), nil
 }

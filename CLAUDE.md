@@ -10,11 +10,14 @@ Digitron is a retro programmer's calculator: exact rational arithmetic, OCT/DEC/
 
 - `calc/` — the engine. No dependency on Qt or the UI.
   - Values are exact `big.Rat`s. Precedence follows C. `Width` is always one of `calc.Widths` (8, 16, 32, 64).
-  - OCT/HEX keep to the word size (`bound` → `wrap`); DEC has none and keeps values of any size (left shifts there are limited by `MaxShift`). `FitsWord` says whether a value fits the word's signed range; the binary display and `ToggleBit` need it.
+  - OCT/HEX keep to the word size (`bound` → `wrap`, which also cuts a fraction towards zero, as a C cast does, so ÷, % and √ need no truncation of their own). `toWord` fits everything the engine holds (shown, operand, waiting operands in `tokens`, memory, `repeatRHS`) when leaving DEC or changing the word size, so no fraction or oversized value hides and comes back in a result. `FitsWord` says whether a value fits the word's signed range; the binary display and `ToggleBit` need it.
+  - DEC has no word size, but one limit, `MaxBits` (2²⁰ bits, top or bottom of the fraction): `tooBig` checks it in `apply`, `Percent`, `memAdd` and `Paste`, giving `ErrTooBig`. A shift count is clamped to just past it before shifting, so a shift is too big exactly when its result is. `digitsOfBits` (log₁₀2 as 30103/100000) turns bits into decimal digits, for `maxDigits` and `decimalExponent`'s estimate.
+  - 0 has no sign, as in the Windows calculator: `Negate` does nothing to a 0 being typed (`entryIsZero`) and `Backspace` drops the sign when the entry becomes 0, so nothing ever shows -0 (`checkInvariants` checks it).
+  - `paste.go` is copy and paste: `CopyText` gives the exact value; `Paste` reads `0x`/`0o`/`0b`, separators, fractions and scientific notation, and refuses text longer than `maxPaste` or an exponent past `maxDigits` before reading it.
   - `float.go` encodes a fraction in IEEE 754 at the word size (`FloatFormats`: double, single, half, FP8 E5M2) from the exact value with round-to-nearest-even; `TestFloatAgainstGo` checks it against Go's own conversions. `IsFloat` (DEC and a fraction) switches the binary display to it. `SetWidth` in DEC makes a fraction the nearest value of the new format (`toFloat`, decoding with `floatValue`), so the value and its bits agree; `TestFloatValueRoundTrip` decodes and re-encodes every FP16 and FP8 pattern.
-  - `Format` fits a decimal to `DisplayCells` (the big digits of the main display; a ui test checks they agree): exact if it fits (a repeating decimal with its repeating block overlined, `Cell.Over`) or if it is a whole number, otherwise rounded to fill it, setting `Formatted.Rounded`, which shows ≈. Square roots are kept to `SqrtDigits` places but always shown rounded.
+  - `Format` fits a decimal to `DisplayCells` (the big digits of the main display; a ui test checks they agree): exact if it fits (a repeating decimal with its repeating block overlined, `Cell.Over`) or if it is a whole number, otherwise rounded to fill it, setting `Formatted.Rounded`, which shows ≈. A small number that would keep fewer than `MinSignificant` (6) digits after its zeros is shown in scientific notation instead (`scientific`, `decimalExponent`: `1.03…E-29`), rounded only if its mantissa is; Paste reads that form back. Square roots are kept to `SqrtDigits` places but always shown rounded.
   - `Equals` remembers the last top-level operation of what it worked out (`remember`) and repeats it when there is no expression; `pending`/`commit` are shared with M+ and M−, which neither repeat nor set up a repeat.
-- `ui/` — draws the whole calculator into an `image.RGBA` "virtual screen" of `ui.W`×`ui.H` (372×398) art pixels, and owns the layout: `Keys`, `MainGlass`, `BinGlass`, the pop-ups (`popup.go`: the panel, notch and title shared by the word-size menu, `menu.go`, and the volume slider, `volume.go`, whose `MaxVolume` a settings test keeps equal to `settings.MaxVolume`), the logo (`icon.go`: `Icon`, and `IconAt`/`IconPNG` for every enlarged copy — the window icon, the desktop entry's, the AppImage's, the macOS app's and the README's all come from it) and both fonts (`font.go`). No Qt here either. `View` holds UI state that is not engine state. The binary display (`binDisplay`) has three modes: an integer's bits in fours (clickable), a fraction as floating point (labelled `FP64` etc., and `+INF`/`-INF` at the right of the top row when `calc.FloatInfinity` says it is too big for the format; sign/exponent/mantissa set apart, not clickable; NaN is never made, as everything that would make one is an engine error), and `BEYOND n BITS` for a whole number too big for the word.
+- `ui/` — draws the whole calculator into an `image.RGBA` "virtual screen" of `ui.W`×`ui.H` (372×398) art pixels, and owns the layout: `Keys`, `MainGlass`, `BinGlass`, the pop-ups (`popup.go`: the panel, notch and title shared by the word-size menu, `menu.go`, and the volume slider, `volume.go`, whose `MaxVolume` a settings test keeps equal to `settings.MaxVolume`), the logo (`icon.go`: `Icon`, and `IconAt`/`IconPNG` for every enlarged copy — the window icon, the desktop entry's, the AppImage's, the macOS app's and the README's all come from it), the window's shape (`window.go`: `WindowSize` picks the size in the art's shape nearest a resize, keeping the side dragged further, and `InShape` says whether a size already is) and both fonts (`font.go`). No Qt here either. `View` holds UI state that is not engine state. The binary display (`binDisplay`) has three modes: an integer's bits in fours (clickable), a fraction as floating point (labelled `FP64` etc., and `+INF`/`-INF` at the right of the top row when `calc.FloatInfinity` says it is too big for the format; sign/exponent/mantissa set apart, not clickable; NaN is never made, as everything that would make one is an engine error), and `BEYOND n BITS` for a whole number too big for the word.
 - `settings/` — the JSON settings file, in Prism's and ApeMail's pattern: `Defaults`, `Load` (falls back to defaults, then `normalise` replaces any unusable value), atomic `Save`, `Prepared` for the path (`os.UserConfigDir()/digitron/settings.json`).
 - `desktop/` — on Linux, writes the desktop entry and the 256×256 logo into `$XDG_DATA_HOME` (`~/.local/share`) at every start, pointing at the running copy or at `$APPIMAGE`, as Delta does. No dependency on the UI; it is given the icon as PNG data (`ui.IconPNG`). `TestPackagedEntryAgrees` keeps it in step with `packaging/digitron.desktop`. `desktop.Name` is also Qt's application and desktop file name, which Wayland matches windows by.
 - `atomicfile/` — replaces a file whole through a temporary file beside it; used by `settings` and `desktop`.
@@ -32,7 +35,18 @@ Pay technical debt down as part of every feature and fix; do not let cruft build
 - Keep this file, the README and the previews (`make screenshot`) in step with the code in the same change.
 - Anything made to help with the work that is worth running again (a generator, a sound cut) goes in the repository with a make target, a `go:generate` line or a note here, never only in a scratch folder.
 - Refactoring changes no behaviour; check with the tests and that `make screenshot` leaves the previews byte-identical.
-- Keep test files to one topic too (in `calc`: `exact_test.go` for the famous bugs and entry, `display_test.go` for fitting the display, `repeat_test.go` for repeated =, `word_test.go` for DEC without a word size, `float_test.go` for IEEE 754).
+- Keep test files to one topic too. In `calc`:
+  - `engine_test.go`: the operations (arithmetic, √, %, memory, base and word size, bits, C, errors), and `press`/`run`, which every test uses.
+  - `entry_test.go`: typing a number (digits, point, +/-, backspace) and the status line's expression.
+  - `famous_test.go`: famous calculator and floating-point bugs, Rump's polynomial, Muller's recurrence.
+  - `display_test.go`: fitting the display, repeating decimals, scientific notation.
+  - `paste_test.go`: copy and paste.
+  - `repeat_test.go`: repeated =.
+  - `word_test.go`: DEC without a word size (shifts, `MaxBits`) and fitting everything to the word.
+  - `float_test.go`: IEEE 754.
+  - `c_test.go`: OCT/HEX against Go's fixed-width integers, and C's traps.
+  - `fuzz_test.go`: random keys checked against invariants (`checkInvariants`, `FuzzKeys`, `TestKeysAtRandom`), and DEC against `math/big`.
+- When fuzzing finds a bug, add the failing case as a named regression test in the file for its topic, and its key sequence to `FuzzKeys`'s seeds.
 
 ## Drawing
 
@@ -63,7 +77,9 @@ Pay technical debt down as part of every feature and fix; do not let cruft build
 ```sh
 make build        # go build -ldflags "-s -w" -o digitron .
 make run
-make test         # go test -race ./...
+make test         # go test -race -timeout 5m ./...
+make vet          # go vet ./...
+make fuzz         # FuzzKeys for FUZZTIME (default 60s)
 make screenshot   # redraw docs/previews
 make icons        # redraw packaging/macos/digitron.png from the logo
 make appimage     # packaging/appimage.sh (releases: the AppImage workflow)

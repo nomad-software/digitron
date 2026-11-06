@@ -14,9 +14,10 @@ correctly. It is written in Go with a Qt 6 interface using the
   are shown with a bar over the part that repeats, so `1 ÷ 7` is
   0.1̅4̅2̅8̅5̅7̅, not 0.14285714285714285.
 - **Made for programmers.** Octal, decimal and hexadecimal are one key
-  away, and binary is on show all the time. In OCT and HEX, word sizes run from 8 to 64 bits in two's
-  complement, and values wrap at the word size the way they do in your code.
-  DEC has no limit at all: `2⁶³ + 1` and `1 << 100` come out exactly.
+  away, and binary is on show all the time. In OCT and HEX, word sizes run
+  from 8 to 64 bits in two's complement, and values wrap at the word size
+  the way they do in your code. DEC has no word size: `2⁶³ + 1` and
+  `1 << 100` come out exactly, as do numbers of up to about 315,000 digits.
 - **Every bit on show.** The second display shows the bits of the current
   value, and clicking a bit flips it. A fraction is shown as the IEEE 754
   floating-point number your code would hold, sign, exponent and mantissa
@@ -43,7 +44,10 @@ correctly. It is written in Go with a Qt 6 interface using the
   them. Choosing a word size with a fraction showing makes it the nearest
   number that size's floating-point format holds, marked `≈` if that changed
   it: `0.1` at 16 bits becomes `0.0999755859375`. A fraction too big for the
-  format, such as 70000.5 at 16 bits, is an error. A shift left of more than 65,536 places in DEC is refused.
+  format, such as 70000.5 at 16 bits, is an error. DEC still has one limit,
+  so that a long shift or squaring a number again and again cannot freeze
+  the calculator: a result of more than about 315,000 digits (2²⁰ bits, top
+  or bottom of a fraction), such as `1 << 1048576`, is the error `TOO BIG`.
 - **The binary display** shows a whole number's bits in two's complement,
   grouped in fours. When a DEC result has a fractional part it switches to
   floating point, labelled `FP64`, `FP32`, `FP16` or `FP8` for the word
@@ -83,17 +87,22 @@ correctly. It is written in Go with a Qt 6 interface using the
   27 characters of the main display, and otherwise rounded to as many
   decimal places as fill it, wherever the point is, with `≈` shown. So
   `1 ÷ 97` is `0.0103092783505154639175258` and `123456789 ÷ 97` is
-  `1272750.4020618556701030928`. A whole number is never rounded: a long one,
-  as DEC can make, a long binary number, or a long number being typed, wraps
-  onto smaller lines, which you scroll with the mouse wheel.
+  `1272750.4020618556701030928`. A number so small that fewer than six of its
+  digits would be left after the zeros is shown in scientific notation
+  instead, again filling the display: `1 ÷ 97 ÷ 10²⁷` is
+  `1.030927835051546391753E-29`, and `1 ÷ 10³⁰`, exactly, `1E-30`. A whole
+  number is never rounded: a long one, as DEC can make, or a long number
+  being typed, wraps onto smaller lines, which you scroll with the mouse
+  wheel.
 - **Copy and paste:** Ctrl+C copies the exact value, as a fraction such as
   `1/7` or `1/97` if its decimal repeats or is rounded on the display; a
-  square root is copied as it is shown. Ctrl+V takes numbers with `0x`, `0o` or `0b`
-  in front, with `_`, `,` or spaces between digits, and fractions such as
-  `22/7` in decimal.
+  square root is copied as it is shown. Ctrl+V takes numbers with `0x`,
+  `0o` or `0b` in front, with `_`, `,` or spaces between digits, and in
+  decimal fractions such as `22/7` and scientific notation such as
+  `1.5e-30`.
 - **Sound:** every key press makes a short retro chirp, like an old
-  mainframe terminal, and moving through the word-size menu makes a soft,
-  dull tick. Each plays at a very slightly different pitch every time, so
+  mainframe terminal, and moving through the word-size menu or the volume
+  slider makes a soft, dull tick. Each plays at a very slightly different pitch every time, so
   it never sounds mechanical. Both sounds are built into the program. The
   VOL key opens a slider, styled like the word-size menu, that sets their
   volume in ten steps; at the bottom, MUTE, there is no sound at all. The
@@ -122,7 +131,7 @@ Almost everything can be done from the keyboard.
 | `(` `)` | Open and close parentheses. |
 | `%` | Percent. |
 | `r` | Square root. |
-| `n` or F9 | Change sign (+/−). |
+| `n` or F9 | Change sign (+/−). As in the Windows calculator, 0 has no sign: type the digits first, then change it. |
 | Backspace | Delete the last digit typed. |
 | Delete | Clear the entry (C). |
 | Escape | Clear everything (AC). Memory, base and word size are kept. |
@@ -391,7 +400,27 @@ file can be edited by hand or deleted to start afresh.
 make test
 ```
 
-This runs every test with Go's race detector.
+This runs every test with Go's race detector. Among them:
+
+- **Famous bugs**, kept from ever coming back: the Windows calculator's
+  `√4 − 2`, Windows 3.1's `2.01 − 2`, the Pentium FDIV bug, Excel 2007's
+  `850 × 77.1`, the Patriot missile's clock, and the usual floating-point
+  traps such as `0.1 + 0.2`.
+- **Problems made to break floating point**, which exact fractions get
+  exactly right: Rump's polynomial and Muller's recurrence.
+- **Programmer's integers** in OCT and HEX checked against Go's own 8-, 16-,
+  32- and 64-bit integers on thousands of random operands, and C's traps:
+  `INT_MIN ÷ −1`, division towards zero, arithmetic shifts, precedence, the
+  Ariane 5 conversion and the 2038 overflow.
+- **Limits:** the size limit in DEC, reached by shifting and by squaring
+  through memory, and pastes too big to read, such as `1e1000000000`.
+- **Random key presses**, thousands of sequences, checked after every key
+  for a state the calculator must never be in. To search for longer:
+
+```sh
+make fuzz               # a minute
+make fuzz FUZZTIME=10m
+```
 
 The screenshot and logo in this file, and pictures of a few other states of
 the calculator, are drawn by a test into `docs/previews`, and are made again

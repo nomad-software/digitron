@@ -225,3 +225,49 @@ func TestFloatInfinity(t *testing.T) {
 		}
 	}
 }
+
+// TestFamousFloats checks patterns every programmer has met: 0.1 and 1/3,
+// which no binary float holds, the edges of double precision, and
+// 0.1 + 0.2, whose exact answer is shown as the double nearest 0.3,
+// 0x3FD3333333333333, not the 0x3FD3333333333334 that adding the two
+// doubles gives.
+func TestFamousFloats(t *testing.T) {
+	pow2 := func(e int) *big.Rat {
+		if e >= 0 {
+			return new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(e)))
+		}
+		return new(big.Rat).SetFrac(big.NewInt(1), new(big.Int).Lsh(big.NewInt(1), uint(-e)))
+	}
+	largest := new(big.Rat).Mul(new(big.Rat).Sub(big.NewRat(2, 1), pow2(-52)), pow2(1023))
+	for _, c := range []struct {
+		name  string
+		r     *big.Rat
+		width int
+		want  uint64
+	}{
+		{"0.1 double", big.NewRat(1, 10), 64, 0x3FB999999999999A},
+		{"0.1 single", big.NewRat(1, 10), 32, 0x3DCCCCCD},
+		{"1/3 double", big.NewRat(1, 3), 64, 0x3FD5555555555555},
+		{"1/3 single", big.NewRat(1, 3), 32, 0x3EAAAAAB},
+		{"-2 double", big.NewRat(-2, 1), 64, 0xC000000000000000},
+		{"the largest double", largest, 64, 0x7FEFFFFFFFFFFFFF},
+		{"the smallest normal double", pow2(-1022), 64, 0x0010000000000000},
+		{"the smallest subnormal double", pow2(-1074), 64, 0x0000000000000001},
+		{"half the smallest: ties to even, zero", pow2(-1075), 64, 0},
+		{"2^1024: infinity", pow2(1024), 64, 0x7FF0000000000000},
+		{"-2^1024: minus infinity", new(big.Rat).Neg(pow2(1024)), 64, 0xFFF0000000000000},
+	} {
+		if got := patternOf(c.r, c.width); got != c.want {
+			t.Errorf("%s: %016X, want %016X", c.name, got, c.want)
+		}
+	}
+
+	e := New()
+	press(e, "0.1+0.2=")
+	if got := patternOf(e.Value().R, 64); got != 0x3FD3333333333333 {
+		t.Errorf("0.1 + 0.2 is shown as %016X, want 3FD3333333333333", got)
+	}
+	if !e.IsFloat() {
+		t.Error("0.1 + 0.2 is not shown as floating point")
+	}
+}

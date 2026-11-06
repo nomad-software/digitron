@@ -2,6 +2,7 @@ package calc
 
 import (
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -75,10 +76,73 @@ func fitDecimal(v Value) Formatted {
 	if v.R.Sign() < 0 {
 		places-- // the sign
 	}
+	// A number so small that few of its digits would be left after the
+	// zeros behind the point is shown in scientific notation instead.
+	if v.R.Sign() != 0 {
+		if exp := decimalExponent(v.R); exp < 0 && places-(-exp-1) < MinSignificant {
+			return scientific(v, exp)
+		}
+	}
 	// Rounding up can carry into the integer part (9.99… to 10.00…), but
 	// then every place is 0 and none is shown, so it still fits.
 	f := formatDecimal(roundPlaces(v.R, max(0, places)))
 	f.Rounded = true
+	return f
+}
+
+// MinSignificant is the fewest significant digits a small number is shown
+// with before the display turns to scientific notation for it.
+const MinSignificant = 6
+
+// decimalExponent returns the power of ten at or below |r|, e such that
+// 10^e <= |r| < 10^(e+1), for r other than 0.
+func decimalExponent(r *big.Rat) int {
+	a := new(big.Rat).Abs(r)
+	// An estimate from the sizes in bits, put right by comparing with
+	// powers of ten.
+	e := digitsOfBits(a.Num().BitLen() - a.Denom().BitLen())
+	for a.Cmp(pow10(e)) < 0 {
+		e--
+	}
+	for a.Cmp(pow10(e+1)) >= 0 {
+		e++
+	}
+	return e
+}
+
+// pow10 returns 10^e as a fraction, for e of either sign.
+func pow10(e int) *big.Rat {
+	p := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(max(e, -e))), nil)
+	if e < 0 {
+		return new(big.Rat).SetFrac(big.NewInt(1), p)
+	}
+	return new(big.Rat).SetInt(p)
+}
+
+// scientific shows v, whose decimal exponent is exp, as a mantissa of one
+// digit before the point and as many after as fill the display, then E and
+// the exponent: 1/97 ÷ 10^27 is 1.030927835051546391753E-29. It is marked
+// rounded only if the mantissa had to be. It is used for exponents of -20
+// and below, so a carry, which brings the exponent nearer 0, never needs
+// more room.
+func scientific(v Value, exp int) Formatted {
+	m := new(big.Rat).Mul(v.R, pow10(-exp))                 // 1 <= |m| < 10
+	places := DisplayCells - len("E"+strconv.Itoa(exp)) - 2 // the digit before the point, and the point
+	if m.Sign() < 0 {
+		places-- // the sign
+	}
+	rm := roundPlaces(m, places)
+	rounded := v.Approx || rm.Cmp(m) != 0
+	if new(big.Rat).Abs(rm).Cmp(big.NewRat(10, 1)) == 0 {
+		// Rounded up to ±10: ±1 at the next power.
+		rm.Quo(rm, big.NewRat(10, 1))
+		exp++
+	}
+	f := formatDecimal(rm)
+	for _, c := range "E" + strconv.Itoa(exp) {
+		f.Cells = append(f.Cells, Cell{Ch: c})
+	}
+	f.Rounded = rounded
 	return f
 }
 

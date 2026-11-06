@@ -4,7 +4,7 @@ BINARY := digitron
 # halves the size of the binary.
 LDFLAGS := -s -w
 
-.PHONY: build run test vet screenshot icons appimage macos clean
+.PHONY: build run test fuzz vet screenshot icons appimage macos clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) .
@@ -18,6 +18,13 @@ TEST_TIMEOUT := 5m
 
 test:
 	go test -race -timeout $(TEST_TIMEOUT) ./...
+
+# Presses keys at random, looking for a state the engine must never be in.
+# go test runs only FuzzKeys's seeds; this searches for FUZZTIME.
+FUZZTIME ?= 60s
+
+fuzz:
+	go test -run '^$$' -fuzz '^FuzzKeys$$' -fuzztime $(FUZZTIME) ./calc
 
 vet:
 	go vet ./...
