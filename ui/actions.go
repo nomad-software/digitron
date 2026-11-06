@@ -20,8 +20,6 @@ func Press(e *calc.Engine, id string) {
 		return
 	}
 	switch id {
-	case "bin":
-		e.SetBase(2)
 	case "oct":
 		e.SetBase(8)
 	case "dec":
@@ -95,6 +93,6 @@ func KeyForText(t string) string {
 		'+': "add", '-': "sub", '*': "mul", 'x': "mul", '/': "div",
 		'=': "eq", '\r': "eq", '.': ".", ',': ".", '%': "pct",
 		'(': "(", ')': ")", '&': "and", '|': "or", '^': "xor", '~': "not",
-		'<': "shl", '>': "shr", 'r': "sqrt", 'n': "neg", 'w': "ws",
+		'<': "shl", '>': "shr", 'r': "sqrt", 'n': "neg", 'w': "ws", 's': "snd",
 	}[ch]
 }

@@ -27,7 +27,7 @@ type token struct {
 // Engine is the calculator state machine. It is driven by key presses and
 // queried by the UI for what to show.
 type Engine struct {
-	Base  int // 2, 8, 10 or 16
+	Base  int // 8, 10 or 16
 	Width int // word size in bits; one of Widths
 
 	tokens   []token
@@ -218,7 +218,7 @@ func (e *Engine) parseEntry(s string) (Value, bool) {
 	return Value{R: r}, true
 }
 
-// entryFits checks a candidate entry. In BIN/OCT/HEX any pattern up to
+// entryFits checks a candidate entry. In OCT and HEX any pattern up to
 // Width bits is accepted (and read as two's complement); DEC has no word
 // size, and any number is.
 func (e *Engine) entryFits(s string) bool {
@@ -231,7 +231,7 @@ func (e *Engine) entryFits(s string) bool {
 
 // FitsWord reports whether the value shown fits the word size, as a signed
 // two's-complement number of Width bits, so that its bits can be shown. In
-// BIN, OCT and HEX it always does; in DEC, which has no word size, it may
+// OCT and HEX it always does; in DEC, which has no word size, it may
 // not.
 func (e *Engine) FitsWord() bool {
 	x := e.shown.Trunc()
@@ -655,8 +655,8 @@ func (e *Engine) SetBase(b int) {
 	}
 }
 
-// SetWidth changes word size, wrapping current values into range in BIN,
-// OCT and HEX. DEC has no word size and keeps whole numbers as they are, but
+// SetWidth changes word size, wrapping current values into range in OCT
+// and HEX. DEC has no word size and keeps whole numbers as they are, but
 // a fraction becomes the nearest number the floating-point format of the
 // new size holds, as the binary display shows it; one too big for it is an
 // error. Sizes not in Widths are ignored.

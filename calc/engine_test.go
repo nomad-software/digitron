@@ -148,14 +148,14 @@ func TestWordSize(t *testing.T) {
 	run(t, 10, 8, "127+1=", "128") // DEC has no word size
 	run(t, 10, 8, "300", "300")
 	run(t, 16, 8, "7F+1=", "80") // HEX wraps to it
-	run(t, 2, 8, "1111111+1=", "10000000")
+	run(t, 8, 8, "177+1=", "200")
 	run(t, 10, 8, "1n", "-1")
 	run(t, 16, 8, "1n", "FF")
 	run(t, 16, 8, "0~", "FF")
 	run(t, 16, 16, "FF<4=", "FF0")
 	run(t, 16, 8, "FF<4=", "F0")
 	run(t, 16, 8, "1FF", "1F") // third digit would overflow
-	run(t, 2, 8, "1<111=", "10000000")
+	run(t, 8, 8, "1<7=", "200")
 	run(t, 16, 32, "80000000>4=", "F8000000") // arithmetic shift
 	run(t, 16, 64, "1n", "FFFFFFFFFFFFFFFF")
 	run(t, 10, 64, "9223372036854775807+1=", "9223372036854775808")
@@ -163,7 +163,7 @@ func TestWordSize(t *testing.T) {
 	run(t, 16, 64, "FFFFFFFFFFFFFFFF+1=", "0")
 	run(t, 16, 64, "FFFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFF") // 17th digit would overflow
 	run(t, 16, 64, "7/2=", "3")
-	run(t, 2, 8, "1012", "101") // 2 is not a binary digit
+	run(t, 8, 8, "1018", "101") // 8 is not an octal digit
 }
 
 func TestWidthCap(t *testing.T) {
@@ -188,10 +188,6 @@ func TestBaseSwitch(t *testing.T) {
 	press(e, "255")
 	e.SetBase(16)
 	if e.Display().String() != "FF" {
-		t.Fatalf("got %s", e.Display())
-	}
-	e.SetBase(2)
-	if e.Display().String() != "11111111" {
 		t.Fatalf("got %s", e.Display())
 	}
 	e.SetBase(10)

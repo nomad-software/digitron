@@ -1,6 +1,7 @@
 package ui
 
-// Hand-made 5x7 pixel font. Each glyph is 7 rows of 5 columns ('#' = on).
+// Hand-made 5x7 pixel font. Each glyph is 7 rows of 5 columns ('#' = on),
+// except a few symbols drawn wider, which text lays out by their own width.
 var font5x7 = map[rune][7]string{
 	'0': {".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."},
 	'1': {"..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."},
@@ -59,7 +60,7 @@ var font5x7 = map[rune][7]string{
 	'…': {".....", ".....", ".....", ".....", ".....", ".....", "#.#.#"},
 	'▲': {".....", "..#..", ".###.", "#####", ".....", ".....", "....."},
 	'▼': {".....", ".....", ".....", "#####", ".###.", "..#..", "....."},
-	'⌫': {".....", "..###", ".#..#", "#.#.#", ".#..#", "..###", "....."},
+	'⌫': {"...######", "..#.....#", ".#..#.#.#", "#....#..#", ".#..#.#.#", "..#.....#", "...######"},
 	'?': {".###.", "#...#", "....#", "...#.", "..#..", ".....", "..#.."},
 }
 
@@ -98,10 +99,21 @@ const (
 	tinyH   = 5
 )
 
+// glyphAdvance is the width of ch in the 5x7 font with the space after it.
+func glyphAdvance(ch rune) int {
+	if g, ok := font5x7[ch]; ok {
+		return len(g[0]) + 1
+	}
+	return advance
+}
+
 func textWidth(s string, scale int) int {
-	n := len([]rune(s))
-	if n == 0 {
+	w := 0
+	for _, ch := range s {
+		w += glyphAdvance(ch)
+	}
+	if w == 0 {
 		return 0
 	}
-	return (n*advance - 1) * scale
+	return (w - 1) * scale
 }

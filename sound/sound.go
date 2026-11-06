@@ -62,13 +62,15 @@ type voice struct {
 type effect struct {
 	pitches [][]byte // 16-bit little-endian PCM
 	voices  []voice
-	next    int // the voice to play it on next
-	last    int // the pitch played last
+	volume  float64 // its volume at full loudness, from 0 to 1
+	next    int     // the voice to play it on next
+	last    int     // the pitch played last
 }
 
 // Player plays the sounds. A nil Player plays nothing.
 type Player struct {
 	key, tick *effect
+	loudness  float64 // set by SetLoudness; 0 plays nothing
 }
 
 // New readies the sounds to be played. It needs the Qt application to have
@@ -83,7 +85,23 @@ func New() (*Player, error) {
 		key.close()
 		return nil, fmt.Errorf("tick.wav: %w", err)
 	}
-	return &Player{key: key, tick: tick}, nil
+	return &Player{key: key, tick: tick, loudness: 1}, nil
+}
+
+// SetLoudness sets how loud the sounds play, from 0, which mutes them, to
+// 1, their full volume. The ear hears loudness roughly as the cube root of
+// amplitude, so the steps of a slider sound even.
+func (p *Player) SetLoudness(l float64) {
+	if p == nil {
+		return
+	}
+	p.loudness = max(0, min(1, l))
+	gain := p.loudness * p.loudness * p.loudness
+	for _, e := range []*effect{p.key, p.tick} {
+		for _, v := range e.voices {
+			v.sink.SetVolume(e.volume * gain)
+		}
+	}
 }
 
 func newEffect(wav []byte, volume, spread float64) (*effect, error) {
@@ -91,7 +109,7 @@ func newEffect(wav []byte, volume, spread float64) (*effect, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &effect{last: -1}
+	e := &effect{volume: volume, last: -1}
 	for i := range variants {
 		pitch := 1 - spread + 2*spread*float64(i)/float64(variants-1)
 		e.pitches = append(e.pitches, pcmBytes(resample(pcm, pitch)))
@@ -112,14 +130,14 @@ func newEffect(wav []byte, volume, spread float64) (*effect, error) {
 
 // Key plays the chirp of a key being pressed.
 func (p *Player) Key() {
-	if p != nil {
+	if p != nil && p.loudness > 0 {
 		p.key.play()
 	}
 }
 
 // Tick plays the tick of moving through a menu.
 func (p *Player) Tick() {
-	if p != nil {
+	if p != nil && p.loudness > 0 {
 		p.tick.play()
 	}
 }

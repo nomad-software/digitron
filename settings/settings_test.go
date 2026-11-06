@@ -55,7 +55,7 @@ func TestLoadUnreadable(t *testing.T) {
 
 func TestSaveLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	want := Settings{Width: 1000, Height: 600, Maximized: true, WordSize: 16, Sound: false}
+	want := Settings{Width: 1000, Height: 600, Maximized: true, WordSize: 16, Volume: 3}
 	if err := want.Save(path); err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +84,8 @@ func TestNormalise(t *testing.T) {
 		{"smallest", Settings{Width: 372, Height: 398, WordSize: 8}, Settings{Width: 372, Height: 398, WordSize: 8}},
 		{"word size too big", Settings{Width: 900, Height: 900, WordSize: 128}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
 		{"word size 0, from before sizes were capped at 64", Settings{Width: 900, Height: 900, WordSize: 0}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
+		{"volume too loud", Settings{Width: 900, Height: 900, WordSize: 32, Volume: 11}, Settings{Width: 900, Height: 900, WordSize: 32, Volume: d.Volume}},
+		{"volume below silent", Settings{Width: 900, Height: 900, WordSize: 32, Volume: -1}, Settings{Width: 900, Height: 900, WordSize: 32, Volume: d.Volume}},
 		{"odd word size", Settings{Width: 900, Height: 900, WordSize: 12}, Settings{Width: 900, Height: 900, WordSize: d.WordSize}},
 	} {
 		s := c.in
@@ -100,7 +102,7 @@ func TestLoadPartial(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"width": 800, "height": 900}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	want := Settings{Width: 800, Height: 900, WordSize: defaultWordSize, Sound: true}
+	want := Settings{Width: 800, Height: 900, WordSize: defaultWordSize, Volume: MaxVolume}
 	if got := Load(path); got != want {
 		t.Errorf("Load = %+v, want %+v", got, want)
 	}
@@ -165,13 +167,16 @@ func TestSaveFails(t *testing.T) {
 }
 
 // TestSizesMatchArt checks the window's default and least sizes against the
-// size of the calculator's art, so that a change to the layout is not left
-// behind here.
+// size of the calculator's art, and the loudest volume against the slider's,
+// so that a change to the face is not left behind here.
 func TestSizesMatchArt(t *testing.T) {
 	if minWidth != ui.W || minHeight != ui.H {
 		t.Errorf("least size %d×%d, art %d×%d", minWidth, minHeight, ui.W, ui.H)
 	}
 	if defaultWidth != 2*ui.W || defaultHeight != 2*ui.H {
 		t.Errorf("default size %d×%d, want twice the art, %d×%d", defaultWidth, defaultHeight, 2*ui.W, 2*ui.H)
+	}
+	if MaxVolume != ui.MaxVolume {
+		t.Errorf("MaxVolume is %d, the slider's is %d", MaxVolume, ui.MaxVolume)
 	}
 }

@@ -76,6 +76,16 @@ func TestPreview(t *testing.T) {
 			v.OpenMenu(e)
 			v.MenuMove(-1)
 		},
+		"volume": func(e *calc.Engine, v *View) {
+			for _, k := range []string{"4", "2"} {
+				Press(e, k)
+			}
+			v.Volume = 7
+			v.OpenVolume()
+		},
+		"mute": func(e *calc.Engine, v *View) {
+			v.OpenVolume()
+		},
 	}
 	for name, f := range scenes {
 		e := calc.New()

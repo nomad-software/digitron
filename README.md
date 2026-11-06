@@ -13,8 +13,8 @@ correctly. It is written in Go with a Qt 6 interface using the
   point, so `0.1 + 0.2` is `0.3` and `1 ÷ 3 × 3` is `1`. Decimals that repeat
   are shown with a bar over the part that repeats, so `1 ÷ 7` is
   0.1̅4̅2̅8̅5̅7̅, not 0.14285714285714285.
-- **Made for programmers.** Binary, octal, decimal and hexadecimal are one
-  key away. In BIN, OCT and HEX, word sizes run from 8 to 64 bits in two's
+- **Made for programmers.** Octal, decimal and hexadecimal are one key
+  away, and binary is on show all the time. In OCT and HEX, word sizes run from 8 to 64 bits in two's
   complement, and values wrap at the word size the way they do in your code.
   DEC has no limit at all: `2⁶³ + 1` and `1 << 100` come out exactly.
 - **Every bit on show.** The second display shows the bits of the current
@@ -30,11 +30,13 @@ correctly. It is written in Go with a Qt 6 interface using the
 
 ## Features
 
-- **Bases:** BIN, OCT, DEC and HEX. Switching base keeps the value, except
-  that BIN, OCT and HEX work in whole numbers, so a fraction is dropped. Keys
+- **Bases:** OCT, DEC and HEX. Switching base keeps the value, except
+  that OCT and HEX work in whole numbers, so a fraction is dropped. There is
+  no binary base: the binary display always shows the bits, and a binary
+  number is entered by clicking them, or pasted with `0b` in front. Keys
   that mean nothing in the current base are greyed out.
-- **Word sizes:** 8, 16, 32 and 64 bits, chosen from a menu on the WS key.
-  The status line shows the base and the word size. BIN, OCT and HEX keep to
+- **Word sizes:** 8, 16, 32 and 64 bits, chosen from a menu on the WRD key.
+  The status line shows the base and the word size. OCT and HEX keep to
   it, and switching to them from DEC drops a fraction and wraps the value into
   the word. DEC has no word size: it works with whole numbers and fractions of
   any size, exactly, and the word size says how the binary display shows
@@ -50,7 +52,8 @@ correctly. It is written in Go with a Qt 6 interface using the
   float to the exact value, rounding as IEEE 754 does, down to subnormals and
   up to infinity. Its bits cannot be clicked. A whole number too big for the
   word size has no bits worth showing, and the display says `BEYOND 64 BITS`
-  (or the size chosen) until it fits again.
+  (or the size chosen) until it fits again; the status line then shows only
+  the base.
 - **Bitwise operators:** AND, OR, XOR, NOT and shifts. `>>` is an arithmetic
   shift, so it keeps the sign.
 - **Precedence like C:** `|` is lower than `^`, which is lower than `&`, then
@@ -88,12 +91,14 @@ correctly. It is written in Go with a Qt 6 interface using the
 - **Sound:** every key press makes a short retro chirp, like an old
   mainframe terminal, and moving through the word-size menu makes a soft,
   dull tick. Each plays at a very slightly different pitch every time, so
-  it never sounds mechanical. Both sounds are built into the program, and
-  can be turned off in the [settings](#settings). The sound starts a moment
+  it never sounds mechanical. Both sounds are built into the program. The
+  VOL key opens a slider, styled like the word-size menu, that sets their
+  volume in ten steps; at the bottom, MUTE, there is no sound at all. The
+  volume is remembered between runs. The sound starts a moment
   after the window opens, so that the window can open at once; a key
   pressed in that first second makes no sound.
 - **Resizing:** the calculator stretches to fill the window.
-- **Remembers** the window size and the word size between runs. See
+- **Remembers** the window size, the word size and the volume between runs. See
   [Settings](#settings).
 
 ## Keyboard shortcuts
@@ -115,8 +120,9 @@ Almost everything can be done from the keyboard.
 | Backspace | Delete the last digit typed. |
 | Delete | Clear the entry (C). |
 | Escape | Clear everything (AC). Memory, base and word size are kept. |
-| F5, F6, F7, F8 | HEX, DEC, OCT, BIN. |
+| F5, F6, F7 | HEX, DEC, OCT. |
 | `w` | Open the word-size menu. |
+| `s` | Open the volume slider. |
 | Ctrl+C | Copy the exact value. |
 | Ctrl+V | Paste a number. |
 | Ctrl+Q | Quit. |
@@ -129,6 +135,19 @@ Almost everything can be done from the keyboard.
 | Return, Enter or Space | Choose the highlighted size. |
 | `8`, `1`, `3`, `6` | Choose 8, 16, 32 or 64 bits straight away. |
 | Escape or `w` | Close the menu without changing anything. |
+
+**On the volume slider**
+
+| Keys | Does |
+|---|---|
+| Up or Right, Down or Left | One step louder or quieter. |
+| Home or Page Up, End or Page Down | The loudest, or mute. |
+| `0`–`9` | That step straight away (0 is mute). |
+| Return, Space, Escape or `s` | Close the slider. |
+
+With the mouse, click or drag along the slider; the volume changes when
+the button is let go, with a tick at the new level. The wheel over it, like
+the keys, changes it a step at a time.
 
 The mouse works too: click the keys, click a bit on the binary display to
 flip it, and scroll the main display when a result is too long to show at
@@ -337,8 +356,9 @@ Digitron is run.
 
 ### Settings
 
-The window size, whether the window was maximised, and the word size are
-saved when Digitron closes, and the word size also as soon as it is chosen.
+The window size, whether the window was maximised, the word size and the
+volume are saved when Digitron closes; the word size also as soon as it is
+chosen, and the volume when the slider is closed.
 They are kept in a JSON file, `digitron/settings.json`, in the place the
 system has for the configuration of programs: `~/.config` on Linux (or
 `$XDG_CONFIG_HOME`) and `~/Library/Application Support` on macOS. If there is
@@ -350,11 +370,11 @@ no such place, the file is kept in the current directory.
   "height": 796,
   "maximized": false,
   "wordSize": 64,
-  "sound": true
+  "volume": 10
 }
 ```
 
-Set `sound` to `false` to turn the sounds off.
+`volume` runs from `0`, no sound, to `10`, the loudest.
 
 A value that is missing or cannot be used is replaced by its default, so the
 file can be edited by hand or deleted to start afresh.

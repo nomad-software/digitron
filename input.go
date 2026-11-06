@@ -32,6 +32,11 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 		a.w.Update()
 		return
 	}
+	if a.view.VolumeOpen {
+		a.volumePress(pt)
+		a.w.Update()
+		return
+	}
 	// A key acts as it goes down, as on a real calculator, so that what is
 	// heard and what happens always go together; it stays down until the
 	// button is let go.
@@ -52,8 +57,10 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 	}
 }
 
-// mouseRelease lets a key held down by the mouse back up.
+// mouseRelease lets a key held down by the mouse back up, and ends a drag
+// of the volume slider's knob, setting the volume it was left at.
 func (a *app) mouseRelease(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
+	a.endVolumeDrag()
 	if a.mouseKey == "" {
 		return
 	}
@@ -62,8 +69,14 @@ func (a *app) mouseRelease(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 	a.w.Update()
 }
 
-// mouseMove highlights the menu item under the pointer.
+// mouseMove drags the volume slider's knob, which only moves it, or
+// highlights the menu item under the pointer.
 func (a *app) mouseMove(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
+	if a.dragVolume {
+		a.moveVolume(ui.VolumeAt(a.eventPoint(ev.QSinglePointEvent).Y))
+		a.w.Update()
+		return
+	}
 	if !a.view.Menu {
 		return
 	}
@@ -74,14 +87,17 @@ func (a *app) mouseMove(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 	}
 }
 
-// press performs a key's action. WS opens the word-size menu instead of
-// acting on the engine directly.
+// press performs a key's action. WRD opens the word-size menu and the sound
+// key the volume slider instead of acting on the engine.
 func (a *app) press(id string) {
-	if id == "ws" {
+	switch id {
+	case "ws":
 		a.view.OpenMenu(a.eng)
-		return
+	case "snd":
+		a.view.OpenVolume()
+	default:
+		ui.Press(a.eng, id)
 	}
-	ui.Press(a.eng, id)
 }
 
 func (a *app) wheel(super func(*qt.QWheelEvent), ev *qt.QWheelEvent) {
@@ -95,6 +111,11 @@ func (a *app) wheel(super func(*qt.QWheelEvent), ev *qt.QWheelEvent) {
 	}
 	if a.view.Menu {
 		a.menuMove(step)
+		a.w.Update()
+		return
+	}
+	if a.view.VolumeOpen {
+		a.setVolume(a.view.Volume - step) // up is louder
 		a.w.Update()
 		return
 	}
@@ -133,6 +154,10 @@ func (a *app) keyPress(super func(*qt.QKeyEvent), ev *qt.QKeyEvent) {
 		a.menuKey(key, ev.Text())
 		return
 	}
+	if a.view.VolumeOpen {
+		a.volumeKey(key, ev.Text())
+		return
+	}
 	switch key {
 	case qt.Key_Backspace:
 		a.tap("bs")
@@ -148,8 +173,6 @@ func (a *app) keyPress(super func(*qt.QKeyEvent), ev *qt.QKeyEvent) {
 		a.tap("dec")
 	case qt.Key_F7:
 		a.tap("oct")
-	case qt.Key_F8:
-		a.tap("bin")
 	case qt.Key_F9:
 		a.tap("neg")
 	default:

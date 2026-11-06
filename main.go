@@ -38,7 +38,7 @@ type app struct {
 	path   string
 
 	// sounds plays the chirp of a key and the tick of the menu; nil when
-	// sound is off or unavailable, and until it has been started.
+	// sound is unavailable, and until it has been started.
 	sounds *sound.Player
 	// soundStart starts the sound once the window is on screen, because
 	// Qt Multimedia takes about a second to start; soundPending is whether
@@ -48,6 +48,9 @@ type app struct {
 
 	mouseKey string
 	flash    *qt.QTimer
+
+	// dragVolume is whether the mouse is dragging the volume slider's knob.
+	dragVolume bool
 }
 
 func main() {
@@ -84,6 +87,7 @@ func main() {
 		path:   path,
 	}
 	a.eng.SetWidth(a.config.WordSize)
+	a.view.Volume = a.config.Volume
 	defer a.sounds.Close()
 	a.w = qt.NewQWidget2()
 	a.w.SetWindowTitle("Digitron")
@@ -92,12 +96,12 @@ func main() {
 	a.w.SetMinimumSize2(ui.W, ui.H)
 	a.w.Resize(a.config.Width, a.config.Height)
 
-	if a.config.Sound {
-		a.soundPending = true
-		a.soundStart = qt.NewQTimer()
-		a.soundStart.SetSingleShot(true)
-		a.soundStart.OnTimeout(a.startSound)
-	}
+	// The sound is started even when muted, so that turning it up later
+	// does not stall the window while Qt Multimedia starts.
+	a.soundPending = true
+	a.soundStart = qt.NewQTimer()
+	a.soundStart.SetSingleShot(true)
+	a.soundStart.OnTimeout(a.startSound)
 
 	a.flash = qt.NewQTimer()
 	a.flash.SetSingleShot(true)
@@ -145,12 +149,14 @@ func (a *app) startSound() {
 		return
 	}
 	a.sounds = s
+	a.applyVolume()
 }
 
-// saveSettings saves the settings, with the word size and the size of the
-// window. A maximised window keeps the size it had before.
+// saveSettings saves the settings, with the word size, the volume and the
+// size of the window. A maximised window keeps the size it had before.
 func (a *app) saveSettings() {
 	a.config.WordSize = a.eng.Width
+	a.config.Volume = a.view.Volume
 	a.config.Maximized = a.w.IsMaximized()
 	if !a.config.Maximized {
 		a.config.Width, a.config.Height = a.w.Width(), a.w.Height()

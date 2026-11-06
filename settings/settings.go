@@ -27,6 +27,11 @@ const (
 // defaultWordSize is the word size, in bits, the calculator starts with.
 const defaultWordSize = 64
 
+// MaxVolume is the loudest step of the volume slider, which also is the
+// volume the calculator starts with; 0 is silent. A test checks that it
+// matches ui.MaxVolume.
+const MaxVolume = 10
+
 // Settings is the state that is saved to disk.
 type Settings struct {
 	// Width and Height are the size of the window when it is not maximised.
@@ -37,8 +42,8 @@ type Settings struct {
 	// WordSize is the calculator's word size in bits, one of calc.Widths.
 	WordSize int `json:"wordSize"`
 
-	// Sound is whether the keys click when they are pressed.
-	Sound bool `json:"sound"`
+	// Volume is how loud the sounds are, from 0 (none) to MaxVolume.
+	Volume int `json:"volume"`
 }
 
 // Defaults returns the settings the program starts with.
@@ -47,7 +52,7 @@ func Defaults() Settings {
 		Width:    defaultWidth,
 		Height:   defaultHeight,
 		WordSize: defaultWordSize,
-		Sound:    true,
+		Volume:   MaxVolume,
 	}
 }
 
@@ -108,6 +113,9 @@ func (s *Settings) normalise() {
 	}
 	if !slices.Contains(calc.Widths, s.WordSize) {
 		s.WordSize = d.WordSize
+	}
+	if s.Volume < 0 || s.Volume > MaxVolume {
+		s.Volume = d.Volume
 	}
 }
 

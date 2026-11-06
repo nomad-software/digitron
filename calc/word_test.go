@@ -2,8 +2,8 @@ package calc
 
 import "testing"
 
-// TestBeyondTheWord checks DEC, which has no word size, against BIN, OCT and
-// HEX, which keep to it.
+// TestBeyondTheWord checks DEC, which has no word size, against OCT and HEX,
+// which keep to it.
 func TestBeyondTheWord(t *testing.T) {
 	e := New()
 	e.SetWidth(8)

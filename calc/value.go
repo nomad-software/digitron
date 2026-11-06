@@ -173,7 +173,7 @@ func apply(op Op, a, b Value, base, width int) (Value, error) {
 	return bound(Value{R: r, Approx: approx}, base, width), nil
 }
 
-// bound fits a value to the word size in BIN, OCT and HEX. DEC has no word
+// bound fits a value to the word size in OCT and HEX. DEC has no word
 // size, and a value of any size is kept.
 func bound(v Value, base, width int) Value {
 	if base == 10 {

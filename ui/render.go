@@ -94,11 +94,11 @@ func buildKeys() []Key {
 		}
 	}
 	small(0,
-		[]string{"bin", "oct", "dec", "hex", "shl", "shr", "and", "or", "xor", "not"},
-		[]string{"BIN", "OCT", "DEC", "HEX", "<<", ">>", "AND", "OR", "XOR", "NOT"})
+		[]string{"oct", "dec", "hex", "shl", "shr", "and", "or", "xor", "not", "bs"},
+		[]string{"OCT", "DEC", "HEX", "<<", ">>", "AND", "OR", "XOR", "NOT", "⌫"})
 	small(1,
-		[]string{"(", ")", "hA", "hB", "hC", "hD", "hE", "hF", "ws", "bs"},
-		[]string{"(", ")", "A", "B", "C", "D", "E", "F", "WS", "⌫"})
+		[]string{"(", ")", "hA", "hB", "hC", "hD", "hE", "hF", "ws", "snd"},
+		[]string{"(", ")", "A", "B", "C", "D", "E", "F", "WRD", "VOL"})
 
 	main := [][]string{
 		{"mc:MC", "7:7", "8:8", "9:9", "div:÷", "c:C", "ac:AC"},
@@ -146,6 +146,10 @@ type View struct {
 	// Word-size menu.
 	Menu    bool // the menu is open
 	MenuSel int  // highlighted item (hover or keyboard)
+
+	// Volume slider.
+	VolumeOpen bool // the slider is open
+	Volume     int  // the level, from 0 (mute) to MaxVolume
 
 	// Filled in by Render:
 	Bits []BitHit
@@ -199,7 +203,7 @@ func (c canvas) glyph(x, y int, ch rune, scale int, col color.RGBA) {
 func (c canvas) text(x, y int, s string, scale int, col color.RGBA) {
 	for _, ch := range s {
 		c.glyph(x, y, ch, scale, col)
-		x += advance * scale
+		x += glyphAdvance(ch) * scale
 	}
 }
 
@@ -269,9 +273,13 @@ func (c canvas) body() {
 	c.hline(2, W-2, bottomLedge+15, cBodyHi)
 }
 
-// lcd draws a bezel and glass around a glass rectangle.
-func (c canvas) lcd(g image.Rectangle) {
-	outer := g.Inset(-6)
+// displayBezel is the width of the frame around the displays' glass.
+const displayBezel = 6
+
+// lcd draws a bezel of the given width, outline included, and glass around
+// a glass rectangle. It takes at least 4 for any grey to show.
+func (c canvas) lcd(g image.Rectangle, bezel int) {
+	outer := g.Inset(-bezel)
 	c.fill(outer, cOutline)
 	c.bevel(outer.Inset(1), cBezel, cBezelLo, cBezelHi) // sunken frame
 	c.fill(outer.Inset(2), cBezel)
@@ -339,7 +347,7 @@ func (c canvas) key(k Key, pressed, active, enabled bool) {
 // ---- the whole frame -------------------------------------------------------
 
 func baseName(b int) string {
-	return map[int]string{2: "BIN", 8: "OCT", 10: "DEC", 16: "HEX"}[b]
+	return map[int]string{8: "OCT", 10: "DEC", 16: "HEX"}[b]
 }
 
 // KeyEnabled reports whether a key does anything in the current mode.
@@ -349,8 +357,6 @@ func KeyEnabled(e *calc.Engine, id string) bool {
 		return e.Base == 16
 	case ".":
 		return e.Base == 10
-	case "2", "3", "4", "5", "6", "7":
-		return e.Base >= 8
 	case "8", "9":
 		return e.Base >= 10
 	}
@@ -361,8 +367,8 @@ func keyActive(e *calc.Engine, v *View, id string) bool {
 	switch id {
 	case "ws":
 		return v.Menu
-	case "bin":
-		return e.Base == 2
+	case "snd":
+		return v.VolumeOpen
 	case "oct":
 		return e.Base == 8
 	case "dec":
@@ -377,8 +383,8 @@ func keyActive(e *calc.Engine, v *View, id string) bool {
 func Render(img *image.RGBA, e *calc.Engine, v *View) {
 	c := canvas{img}
 	c.body()
-	c.lcd(MainGlass)
-	c.lcd(BinGlass)
+	c.lcd(MainGlass, displayBezel)
+	c.lcd(BinGlass, displayBezel)
 	c.mainDisplay(e, v)
 	c.binDisplay(e, v)
 	for _, k := range Keys {
@@ -387,12 +393,20 @@ func Render(img *image.RGBA, e *calc.Engine, v *View) {
 	if v.Menu {
 		c.menu(e, v)
 	}
+	if v.VolumeOpen {
+		c.volume(v)
+	}
 }
 
 func (c canvas) mainDisplay(e *calc.Engine, v *View) {
 	g := MainGlass
 	// Status row: mode flags on the left, pending expression on the right.
-	status := fmt.Sprintf("%s %d", baseName(e.Base), e.Width)
+	// The word size is left out while the value is beyond it, as the binary
+	// display then shows no bits of that size.
+	status := baseName(e.Base)
+	if !beyondWord(e) {
+		status += fmt.Sprintf(" %d", e.Width)
+	}
 	if e.HasMemory() {
 		status += " M"
 	}
@@ -474,9 +488,7 @@ func (c canvas) binDisplay(e *calc.Engine, v *View) {
 		return
 	}
 	float := e.IsFloat()
-	if !float && !e.FitsWord() {
-		// DEC has no word size, and this value does not fit the one chosen:
-		// its bits would mean nothing, so none are shown.
+	if beyondWord(e) {
 		msg := fmt.Sprintf("BEYOND %d BITS", e.Width)
 		c.text(g.Min.X+(g.Dx()-textWidth(msg, 1))/2, g.Min.Y+(g.Dy()-glyphH)/2, msg, 1, cLCDDim)
 		return
@@ -565,6 +577,13 @@ func (c canvas) binDisplay(e *calc.Engine, v *View) {
 		c.tiny(x-5-len(left)*tinyAdv, ly, left, cLCDDim)
 		c.tiny(right+4, ly, fmt.Sprint(lo), cLCDDim)
 	}
+}
+
+// beyondWord reports whether the value is a whole number too big for the
+// word size, which only DEC allows: its bits would mean nothing, so none are
+// shown. A fraction never is; it is shown as floating point instead.
+func beyondWord(e *calc.Engine) bool {
+	return e.Err() == nil && !e.IsFloat() && !e.FitsWord()
 }
 
 func (c canvas) bitGlyph(x, y int, on bool, col color.RGBA) {
