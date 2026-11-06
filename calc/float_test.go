@@ -201,3 +201,27 @@ func TestWordSizeRoundsFraction(t *testing.T) {
 		t.Errorf("70000 at 8 bits: %q, %v", got, e.Err())
 	}
 }
+
+// TestFloatInfinity checks which values each format holds and which it
+// rounds to infinity, either side of the largest it holds.
+func TestFloatInfinity(t *testing.T) {
+	for _, c := range []struct {
+		r     *big.Rat
+		width int
+		want  int
+	}{
+		{big.NewRat(65504, 1), 16, 0},    // the largest half
+		{big.NewRat(65519, 1), 16, 0},    // rounds down to it
+		{big.NewRat(65520, 1), 16, 1},    // rounds up past it
+		{big.NewRat(-140001, 2), 16, -1}, // −70000.5
+		{big.NewRat(57344, 1), 8, 0},     // the largest FP8 E5M2
+		{big.NewRat(62000, 1), 8, 1},
+		{big.NewRat(1, 3), 64, 0},
+		{new(big.Rat).SetFrac(new(big.Int).Lsh(big.NewInt(3), 1100), big.NewInt(7)), 64, 1},
+		{big.NewRat(0, 1), 32, 0},
+	} {
+		if got := FloatInfinity(Value{R: c.r}, c.width); got != c.want {
+			t.Errorf("FloatInfinity(%s, %d) = %d, want %d", c.r.RatString(), c.width, got, c.want)
+		}
+	}
+}

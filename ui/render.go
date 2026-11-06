@@ -58,7 +58,7 @@ var (
 	cLCD       = rgb(0x5cdc53) // lit segments
 	cLCDDim    = mix(cGlass, cLCD, 0.45)
 	cLCDGhost  = mix(cGlass, cLCD, 0.16)
-	cLCDErr    = cLCD
+	cLCDErr    = cLCDDim // an error is a message, not a value
 
 	lightKey = keyColors{face: rgb(0xe4d5b9), hi: rgb(0xf5ecda), side: rgb(0xa6957a), text: rgb(0x2b2520)}
 	darkKey  = keyColors{face: rgb(0x6b625a), hi: rgb(0x8a8077), side: rgb(0x433c36), text: rgb(0xece2cf)}
@@ -574,14 +574,21 @@ func (c canvas) binDisplay(e *calc.Engine, v *View) {
 			}
 		}
 		// Labels: the high bit's index left of the row, or, on the top row of
-		// a float, its format; the low bit's index right of it.
+		// a float, its format; the low bit's index right of it, or, on the top
+		// row of a float too big for its format, +INF or -INF.
 		ly := y + (gh-tinyH)/2
-		left := fmt.Sprint(hi)
+		left, rightLabel := fmt.Sprint(hi), fmt.Sprint(lo)
 		if float && vr == 0 {
 			left = fmt.Sprintf("FP%d", e.Width)
+			switch calc.FloatInfinity(e.Value(), e.Width) {
+			case 1:
+				rightLabel = "+INF"
+			case -1:
+				rightLabel = "-INF"
+			}
 		}
 		c.tiny(x-5-len(left)*tinyAdv, ly, left, cLCDDim)
-		c.tiny(right+4, ly, fmt.Sprint(lo), cLCDDim)
+		c.tiny(right+4, ly, rightLabel, cLCDDim)
 	}
 }
 

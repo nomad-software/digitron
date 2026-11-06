@@ -64,6 +64,22 @@ func TestPreview(t *testing.T) {
 				Press(e, k)
 			}
 		},
+		"infinity": func(e *calc.Engine, v *View) {
+			e.SetWidth(16)
+			for _, k := range []string{"7", "0", "0", "0", "0", ".", "5", "neg"} {
+				Press(e, k)
+			}
+		},
+		"infinity64": func(e *calc.Engine, v *View) {
+			for _, k := range []string{"(", "1", "shl", "1", "0", "2", "6", ")", "div", "3", "eq"} {
+				Press(e, k)
+			}
+		},
+		"error": func(e *calc.Engine, v *View) {
+			for _, k := range []string{"1", "div", "0", "eq"} {
+				Press(e, k)
+			}
+		},
 		"beyond": func(e *calc.Engine, v *View) {
 			for _, k := range []string{"1", "shl", "1", "0", "0", "eq"} {
 				Press(e, k)

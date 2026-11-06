@@ -43,6 +43,20 @@ func FloatBitsOf(v Value, width int) []bool {
 	return bits
 }
 
+// FloatInfinity reports whether v, in the floating-point format of the
+// word size, is too big for it and so is infinity: 1 for +∞, -1 for −∞ and
+// 0 for a number the format holds.
+func FloatInfinity(v Value, width int) int {
+	f := FloatFormats[width]
+	pattern := floatPattern(v.R, f)
+	exp := new(big.Int).Rsh(pattern, uint(f.MantBits))
+	exp.SetBit(exp, f.ExpBits, 0) // drop the sign
+	if exp.Int64() != 1<<f.ExpBits-1 {
+		return 0
+	}
+	return v.R.Sign()
+}
+
 // floatPattern encodes r in f, as the unsigned integer the bits make.
 func floatPattern(r *big.Rat, f FloatFormat) *big.Int {
 	bias := 1<<(f.ExpBits-1) - 1

@@ -50,8 +50,11 @@ correctly. It is written in Go with a Qt 6 interface using the
   size: IEEE 754 double, single or half precision, or for 8 bits FP8 E5M2.
   The bits are split into sign, exponent and mantissa, and are the nearest
   float to the exact value, rounding as IEEE 754 does, down to subnormals and
-  up to infinity. Its bits cannot be clicked. A whole number too big for the
-  word size has no bits worth showing, and the display says `BEYOND 64 BITS`
+  up to infinity, which is labelled `+INF` or `-INF`. There is no NaN: what
+  would make one in your code, such as `0 ÷ 0` or the square root of a
+  negative number, is an error, shown in the dim green of the status line.
+  Its bits cannot be clicked. A whole number too big for the word size has
+  no bits worth showing, and the display says `BEYOND 64 BITS`
   (or the size chosen) until it fits again; the status line then shows only
   the base.
 - **Bitwise operators:** AND, OR, XOR, NOT and shifts. `>>` is an arithmetic
@@ -97,7 +100,10 @@ correctly. It is written in Go with a Qt 6 interface using the
   volume is remembered between runs. The sound starts a moment
   after the window opens, so that the window can open at once; a key
   pressed in that first second makes no sound.
-- **Resizing:** the calculator stretches to fill the window.
+- **Resizing:** the window keeps the calculator's shape, so every pixel
+  stays square. While it is being dragged it can take any shape; a moment
+  after it stops, the side dragged further keeps its length and the other
+  follows it. A maximised window fills the screen and is stretched to fit it.
 - **Remembers** the window size, the word size and the volume between runs. See
   [Settings](#settings).
 

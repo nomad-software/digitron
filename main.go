@@ -51,6 +51,11 @@ type app struct {
 
 	// dragVolume is whether the mouse is dragging the volume slider's knob.
 	dragVolume bool
+
+	// reshape puts the window back in the calculator's shape once it has
+	// stopped being resized; shapedW×shapedH is its size when last in shape.
+	reshape          *qt.QTimer
+	shapedW, shapedH int
 }
 
 func main() {
@@ -94,7 +99,10 @@ func main() {
 	a.w.SetFocusPolicy(qt.StrongFocus)
 	a.w.SetMouseTracking(true) // for menu hover
 	a.w.SetMinimumSize2(ui.W, ui.H)
-	a.w.Resize(a.config.Width, a.config.Height)
+	// A saved size out of shape is put in shape, keeping its width.
+	w, h := ui.WindowSize(a.config.Width, a.config.Height, a.config.Width, a.config.Height)
+	a.w.Resize(w, h)
+	a.startReshaping(w, h)
 
 	// The sound is started even when muted, so that turning it up later
 	// does not stall the window while Qt Multimedia starts.
@@ -118,6 +126,7 @@ func main() {
 	a.w.OnMouseMoveEvent(a.mouseMove)
 	a.w.OnWheelEvent(a.wheel)
 	a.w.OnKeyPressEvent(a.keyPress)
+	a.w.OnResizeEvent(a.resized)
 	a.w.OnCloseEvent(func(super func(*qt.QCloseEvent), ev *qt.QCloseEvent) {
 		a.saveSettings()
 		super(ev)
