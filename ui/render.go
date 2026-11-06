@@ -62,6 +62,7 @@ var (
 
 	lightKey = keyColors{face: rgb(0xe4d5b9), hi: rgb(0xf5ecda), side: rgb(0xa6957a), text: rgb(0x2b2520)}
 	darkKey  = keyColors{face: rgb(0x6b625a), hi: rgb(0x8a8077), side: rgb(0x433c36), text: rgb(0xece2cf)}
+	deepKey  = keyColors{face: rgb(0x48413b), hi: rgb(0x645c55), side: rgb(0x2b2622), text: rgb(0xece2cf)}
 )
 
 type keyColors struct{ face, hi, side, text color.RGBA }
@@ -72,7 +73,8 @@ type Key struct {
 	Label string
 	Rect  image.Rectangle
 	Dark  bool
-	Scale int // label scale (1 small keys, 2 main keys)
+	Deep  bool // a dark key a shade darker: the keys that open a pop-up
+	Scale int  // label scale (1 small keys, 2 main keys)
 }
 
 // Display regions (glass, inside the bezel).
@@ -90,7 +92,8 @@ func buildKeys() []Key {
 		for i := range ids {
 			x := 13 + i*35
 			y := smallKeysY + row*28
-			ks = append(ks, Key{ID: ids[i], Label: labels[i], Rect: image.Rect(x, y, x+31, y+22), Dark: true, Scale: 1})
+			deep := ids[i] == "ws" || ids[i] == "snd"
+			ks = append(ks, Key{ID: ids[i], Label: labels[i], Rect: image.Rect(x, y, x+31, y+22), Dark: true, Deep: deep, Scale: 1})
 		}
 	}
 	small(0,
@@ -297,7 +300,10 @@ func (c canvas) lcd(g image.Rectangle, bezel int) {
 
 func (c canvas) key(k Key, pressed, active, enabled bool) {
 	pal := lightKey
-	if k.Dark {
+	switch {
+	case k.Deep:
+		pal = deepKey
+	case k.Dark:
 		pal = darkKey
 	}
 	r := k.Rect

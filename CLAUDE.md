@@ -39,6 +39,7 @@ Pay technical debt down as part of every feature and fix; do not let cruft build
 - Everything visible is drawn in `ui` at art-pixel resolution with `canvas` primitives (`fill`, `bevel`, `text`, `tiny`, `key`, `lcd`, `popup`) and the palette at the top of `render.go`. Never draw with Qt directly; new UI elements (like the menu) are pixel art in `ui`, styled like the keys.
 - `lcd` draws a display's glass in a frame of a given width: `displayBezel` (6) for the main and binary displays, `volBezel` (4) for the volume slider's readout. Below 4 no grey shows.
 - 5x7 glyphs are 5 wide except a few symbols drawn wider (`⌫` is 9); `text` and `textWidth` lay them out by `glyphAdvance`. The main display's digit cells still assume `advance`.
+- Keys come in three shades, `lightKey`, `darkKey` and `deepKey` (`Key.Dark`, `Key.Deep`); the keys that open a pop-up, WRD and VOL, are deep.
 - In a pop-up the highlighted item is a light key with dark text, even when it is the current choice; the current choice is lit green only when not highlighted.
 - Bright `cLCD` is for values (the main display's number, set bits, the volume readout's level); labels and indicators (the status line, bit indices, the volume slider's lit groove) are `cLCDDim`.
 - `draw.go` stretches the frame to fill the window (each axis independently) using "sharp bilinear": a nearest-neighbour enlargement to a whole multiple, then one smooth shrink. Mouse positions map back with `toVirtual`.
