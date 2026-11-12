@@ -1,11 +1,11 @@
-package main
+package gui
 
 // Benchmarks of the Qt layer: painting the window, which renders the frame,
 // enlarges it into a QImage and draws that scaled to the window, and the
 // handling of a key and of a mouse click, each a call from Qt into Go and
 // back. They run headlessly, on Qt's offscreen platform.
 //
-//	go test -run '^$' -bench . -benchmem .
+//	go test -run '^$' -bench . -benchmem ./gui
 
 import (
 	"testing"
@@ -24,9 +24,9 @@ func TestMain(m *testing.M) { qutetest.TestMain(m) }
 
 // benchApp shows the calculator at k times its size, with its settings in
 // a scratch folder.
-func benchApp(b *testing.B, k int) *app {
+func benchApp(b *testing.B, k int) *App {
 	b.Helper()
-	var a *app
+	var a *App
 	painted := false
 	dir := b.TempDir()
 	qutetest.Run(b, func() {

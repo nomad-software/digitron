@@ -47,7 +47,8 @@ correctly. It is written in Go with a Qt 6 interface using the
   format, such as 70000.5 at 16 bits, is an error. DEC still has one limit,
   so that a long shift or squaring a number again and again cannot freeze
   the calculator: a result of more than about 315,000 digits (2²⁰ bits, top
-  or bottom of a fraction), such as `1 << 1048576`, is the error `TOO BIG`.
+  or bottom of a fraction), such as `1 << 1048576`, is the error `TOO BIG`,
+  and a digit typed or a number pasted past it is not taken.
 - **The binary display** shows a whole number's bits in two's complement,
   grouped in fours. When a DEC result has a fractional part it switches to
   floating point, labelled `FP64`, `FP32`, `FP16` or `FP8` for the word
@@ -391,8 +392,9 @@ version of them, or one binding, with another:
 
 ```sh
 make bench
-``` `docs/concept.png` is the concept the
-calculator's face was drawn from.
+```
+
+`docs/concept.png` is the concept the calculator's face was drawn from.
 
 ## License
 

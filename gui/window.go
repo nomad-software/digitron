@@ -1,4 +1,4 @@
-package main
+package gui
 
 // Keeping the window the shape of the calculator, so that the frame is
 // scaled by the same amount on both axes and every art pixel is square.
@@ -21,7 +21,7 @@ const reshapeDelay = 300
 // startReshaping readies the timer that puts the window back in shape, and
 // notes the window's size, already in shape, as the one a resize starts
 // from.
-func (a *app) startReshaping(w, h int) {
+func (a *App) startReshaping(w, h int) {
 	a.shapedW, a.shapedH = w, h
 	a.reshape = qtcore.NewQTimer(a.w)
 	a.reshape.SetSingleShot(true)
@@ -31,7 +31,7 @@ func (a *app) startReshaping(w, h int) {
 // resized waits for the resizing to stop before putting the window in
 // shape: each resize starts the wait again. A size already in shape needs
 // nothing, and becomes the size the next resize starts from.
-func (a *app) resized(size qtcore.QSize) {
+func (a *App) resized(size qtcore.QSize) {
 	if a.w.IsMaximized() || a.w.IsFullScreen() {
 		a.reshape.Stop()
 		return
@@ -48,7 +48,7 @@ func (a *app) resized(size qtcore.QSize) {
 // dragged further, since it was last in shape, keeps its length, and the
 // other follows it. A maximised or full-screen window takes the size the
 // desktop gives it, and is left alone.
-func (a *app) snapToShape() {
+func (a *App) snapToShape() {
 	if a.w.IsMaximized() || a.w.IsFullScreen() {
 		return
 	}

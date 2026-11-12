@@ -145,7 +145,7 @@ func (e *Engine) beginOperand() {
 
 // Digit types a digit 0-15 in the current base.
 func (e *Engine) Digit(d int) {
-	if e.err != nil || d >= e.Base {
+	if e.err != nil || d < 0 || d >= e.Base {
 		return
 	}
 	if !e.typing {
@@ -212,13 +212,16 @@ func (e *Engine) parseEntry(s string) (Value, bool) {
 
 // entryFits checks a candidate entry. In OCT and HEX any pattern up to
 // Width bits is accepted (and read as two's complement); DEC has no word
-// size, and any number is.
+// size, and any number within MaxBits is.
 func (e *Engine) entryFits(s string) bool {
 	v, ok := e.parseEntry(s)
 	if !ok {
 		return false
 	}
-	return e.Base == 10 || v.Trunc().BitLen() <= e.Width
+	if e.Base == 10 {
+		return !tooBig(v.R)
+	}
+	return v.Trunc().BitLen() <= e.Width
 }
 
 // FitsWord reports whether the value shown fits the word size, as a signed
@@ -712,9 +715,10 @@ func (e *Engine) SetWidth(w int) {
 }
 
 // ToggleBit flips bit i of the displayed value (binary display click). A
-// value too big for the word has no bits shown, and is left alone.
+// value too big for the word has no bits shown, and a fraction is shown as
+// floating point, whose bits are not clicked; either is left alone.
 func (e *Engine) ToggleBit(i int) {
-	if e.err != nil || !e.FitsWord() {
+	if e.err != nil || e.IsFloat() || !e.FitsWord() {
 		return
 	}
 	wasEval := e.justEval

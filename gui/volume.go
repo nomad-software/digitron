@@ -1,4 +1,4 @@
-package main
+package gui
 
 // Handling of the volume slider, which package ui draws and lays out.
 
@@ -12,7 +12,7 @@ import (
 
 // moveVolume moves the slider's knob to level without changing the volume,
 // and reports whether it moved.
-func (a *app) moveVolume(level int) bool {
+func (a *App) moveVolume(level int) bool {
 	level = max(0, min(ui.MaxVolume, level))
 	if level == a.view.Volume {
 		return false
@@ -25,7 +25,7 @@ func (a *app) moveVolume(level int) bool {
 // volume and plays the tick at it, so that what is heard is what was
 // chosen; at 0 nothing is. The keys and the wheel use it, as each of their
 // steps is a choice made.
-func (a *app) setVolume(level int) {
+func (a *App) setVolume(level int) {
 	if a.moveVolume(level) {
 		a.applyVolume()
 		a.sounds.Tick()
@@ -33,13 +33,13 @@ func (a *app) setVolume(level int) {
 }
 
 // applyVolume sets the sounds to the slider's level.
-func (a *app) applyVolume() {
+func (a *App) applyVolume() {
 	a.sounds.SetLoudness(float64(a.view.Volume) / ui.MaxVolume)
 }
 
 // endVolumeDrag ends a drag of the knob. Only the knob moved during it; the
 // volume is set now that the level is known, and the tick played at it.
-func (a *app) endVolumeDrag() {
+func (a *App) endVolumeDrag() {
 	if !a.dragVolume {
 		return
 	}
@@ -49,7 +49,7 @@ func (a *app) endVolumeDrag() {
 }
 
 // closeVolume hides the slider and saves the level it was left at.
-func (a *app) closeVolume() {
+func (a *App) closeVolume() {
 	a.endVolumeDrag()
 	a.view.CloseVolume()
 	a.saveSettings()
@@ -59,7 +59,7 @@ func (a *app) closeVolume() {
 // it moves the knob there and starts a drag, which sets the volume when the
 // mouse is released; anywhere off the panel it closes the slider without
 // reaching the keys underneath.
-func (a *app) volumePress(pt image.Point) {
+func (a *App) volumePress(pt image.Point) {
 	switch {
 	case pt.In(ui.VolumeTrack):
 		a.dragVolume = true
@@ -72,7 +72,7 @@ func (a *app) volumePress(pt image.Point) {
 // volumeKey handles the keyboard while the slider is open: Up and Right
 // are louder, Down and Left quieter, Home the loudest, End mute, a digit
 // that level, and Return, Space, Escape or S close it.
-func (a *app) volumeKey(key qtcore.Key, text string) {
+func (a *App) volumeKey(key qtcore.Key, text string) {
 	switch key {
 	case qtcore.Key_Up, qtcore.Key_Right:
 		a.setVolume(a.view.Volume + 1)

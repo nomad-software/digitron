@@ -11,6 +11,17 @@
             "statusMessage": "Building digitron..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && if [ ! -f digitron ] || [ -n \"$(find . -path ./.git -prune -o \\( -name '*.go' -o -name go.mod -o -name go.sum -o -name Makefile \\) -newer digitron -print -quit)\" ]; then out=$(make build 2>&1) || { printf \"make build failed:\\n%s\\n\" \"$out\" >&2; exit 2; }; fi",
+            "timeout": 180,
+            "statusMessage": "Building digitron..."
+          }
+        ]
       }
     ]
   }

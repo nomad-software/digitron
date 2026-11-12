@@ -1,4 +1,4 @@
-package main
+package gui
 
 // Drawing the calculator: the frame rendered by package ui is scaled to
 // the window, and mouse positions are mapped back onto it.
@@ -16,7 +16,7 @@ import (
 
 // upload enlarges the Go frame k times into a QImage, repeating each art
 // pixel as a k×k block.
-func (a *app) upload(k int) *qtgui.QImage {
+func (a *App) upload(k int) *qtgui.QImage {
 	if a.up == nil || a.upK != k {
 		if a.up != nil {
 			a.up.Delete()
@@ -47,7 +47,7 @@ func (a *app) upload(k int) *qtgui.QImage {
 // a nearest-neighbour enlargement to the next whole multiple of the device
 // size, then a smooth shrink to the exact size, so only the seams between
 // art pixels are blended, never the pixels themselves.
-func (a *app) paint() {
+func (a *App) paint() {
 	ui.Render(a.frame, a.eng, &a.view)
 	defer a.afterFirstPaint()
 
@@ -67,12 +67,12 @@ func (a *app) paint() {
 	p.End()
 }
 
-func (a *app) toVirtual(x, y float64) image.Point {
+func (a *App) toVirtual(x, y float64) image.Point {
 	return image.Pt(int(x/a.sx), int(y/a.sy))
 }
 
 // setIcon uses the logo, enlarged with sharp pixels, as the window icon.
-func (a *app) setIcon() {
+func (a *App) setIcon() {
 	logo := ui.IconAt(8)
 	n := logo.Bounds().Dx()
 	img := qtgui.NewQImageFromBytes(logo.Pix, n, n, logo.Stride, qtgui.QImageFormat_RGBA8888)

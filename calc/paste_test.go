@@ -76,6 +76,8 @@ func TestPasteCases(t *testing.T) {
 		{16, "1.5", false, "0"},                                   // no fractions outside DEC
 		{16, "0x1ffffffffffffffff", false, "0"},                   // 65 bits, more than the word
 		{10, "0x1ffffffffffffffff", true, "36893488147419103231"}, // DEC has no word size
+		{16, "0x0b1", true, "B1"},                                 // one prefix only: not 0b1
+		{10, "0b0x1", false, "0"},                                 // nor 0x1
 		{10, "", false, "0"},
 		// Scientific notation, as an approximate tiny number is copied.
 		{10, "1.5e-30", true, "1.5E-30"},
@@ -91,6 +93,19 @@ func TestPasteCases(t *testing.T) {
 		ok := e.Paste(c.in)
 		if ok != c.ok || e.Display().String() != c.want {
 			t.Errorf("Paste(%q) in base %d = %v, %q; want %v, %q", c.in, c.base, ok, e.Display(), c.ok, c.want)
+		}
+	}
+}
+
+// TestPasteOnePrefix is a regression test: the prefixes were tried in a
+// map's random order, and after 0x a 0b could be cut too, so 0x0b1, hex
+// B1, was sometimes read as binary 1.
+func TestPasteOnePrefix(t *testing.T) {
+	for range 50 {
+		e := New()
+		e.SetBase(16)
+		if !e.Paste("0x0b1") || e.Display().String() != "B1" {
+			t.Fatalf("Paste(0x0b1) shows %q, want B1", e.Display())
 		}
 	}
 }

@@ -1,6 +1,6 @@
-package main
+package gui
 
-// The window: a QWidget whose events are handed to the app.
+// The window: a QWidget whose events are handed to the App.
 
 import (
 	"github.com/nomad-software/qute/qtgui"
@@ -10,11 +10,11 @@ import (
 // window is the calculator's window, a Go subclass of QWidget.
 type window struct {
 	qtwidgets.QWidgetBase
-	a *app
+	a *App
 }
 
 // newWindow makes the window for a, not yet shown.
-func newWindow(a *app) *qtwidgets.QWidget {
+func newWindow(a *App) *qtwidgets.QWidget {
 	w := &window{a: a}
 	qtwidgets.NewQWidgetWith(w, nil)
 	return w.QWidget

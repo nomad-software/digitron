@@ -1,4 +1,4 @@
-package main
+package gui
 
 // Mouse and keyboard input.
 
@@ -12,12 +12,12 @@ import (
 )
 
 // eventPoint returns where a mouse event happened on the virtual screen.
-func (a *app) eventPoint(ev *qtgui.QSinglePointEvent) image.Point {
+func (a *App) eventPoint(ev *qtgui.QSinglePointEvent) image.Point {
 	pos := ev.Position()
 	return a.toVirtual(pos.X, pos.Y)
 }
 
-func (a *app) mousePress(ev *qtgui.QMouseEvent) {
+func (a *App) mousePress(ev *qtgui.QMouseEvent) {
 	pt := a.eventPoint(&ev.QSinglePointEvent)
 	if a.view.Menu {
 		// While the menu is open a click either picks an item or, anywhere
@@ -59,7 +59,7 @@ func (a *app) mousePress(ev *qtgui.QMouseEvent) {
 
 // mouseRelease lets a key held down by the mouse back up, and ends a drag
 // of the volume slider's knob, setting the volume it was left at.
-func (a *app) mouseRelease() {
+func (a *App) mouseRelease() {
 	a.endVolumeDrag()
 	if a.mouseKey == "" {
 		return
@@ -71,7 +71,7 @@ func (a *app) mouseRelease() {
 
 // mouseMove drags the volume slider's knob, which only moves it, or
 // highlights the menu item under the pointer.
-func (a *app) mouseMove(ev *qtgui.QMouseEvent) {
+func (a *App) mouseMove(ev *qtgui.QMouseEvent) {
 	if a.dragVolume {
 		a.moveVolume(ui.VolumeAt(a.eventPoint(&ev.QSinglePointEvent).Y))
 		a.w.Update()
@@ -87,9 +87,11 @@ func (a *app) mouseMove(ev *qtgui.QMouseEvent) {
 	}
 }
 
-// press performs a key's action. WRD opens the word-size menu and the sound
+// press performs a key's action, mouse or keyboard, and brings a long
+// number back to its first line. WRD opens the word-size menu and the sound
 // key the volume slider instead of acting on the engine.
-func (a *app) press(id string) {
+func (a *App) press(id string) {
+	a.view.MainScroll = 0
 	switch id {
 	case "ws":
 		a.view.OpenMenu(a.eng)
@@ -100,7 +102,7 @@ func (a *app) press(id string) {
 	}
 }
 
-func (a *app) wheel(ev *qtgui.QWheelEvent) {
+func (a *App) wheel(ev *qtgui.QWheelEvent) {
 	dy := ev.AngleDelta().Y
 	step := 0
 	switch {
@@ -127,18 +129,17 @@ func (a *app) wheel(ev *qtgui.QWheelEvent) {
 }
 
 // tap presses a key from the keyboard and briefly shows it held down.
-func (a *app) tap(id string) {
+func (a *App) tap(id string) {
 	a.sounds.Key()
 	a.press(id)
 	a.view.Pressed = id
-	a.view.MainScroll = 0
 	a.flash.StartWithInterval(110)
 	a.w.Update()
 }
 
 // keyPress handles a key, and reports whether it was one the calculator
 // uses.
-func (a *app) keyPress(ev *qtgui.QKeyEvent) bool {
+func (a *App) keyPress(ev *qtgui.QKeyEvent) bool {
 	key := qtcore.Key(ev.Key())
 	if ev.Modifiers()&qtcore.ControlModifier != 0 {
 		switch key {
@@ -147,7 +148,9 @@ func (a *app) keyPress(ev *qtgui.QKeyEvent) bool {
 		case qtcore.Key_C:
 			qtgui.QGuiApplicationClipboard().SetText(a.eng.CopyText())
 		case qtcore.Key_V:
-			a.eng.Paste(qtgui.QGuiApplicationClipboard().Text())
+			if a.eng.Paste(qtgui.QGuiApplicationClipboard().Text()) {
+				a.view.MainScroll = 0
+			}
 			a.w.Update()
 		}
 		return true

@@ -1,4 +1,4 @@
-package main
+package gui
 
 // Handling of the word-size menu, which package ui draws and lays out.
 
@@ -12,13 +12,13 @@ import (
 
 // chooseWidth applies the highlighted word size and saves it straight away,
 // so it survives even if the app is not closed cleanly.
-func (a *app) chooseWidth() {
+func (a *App) chooseWidth() {
 	a.view.MenuChoose(a.eng)
 	a.saveSettings()
 }
 
 // menuMove moves the menu's highlight by d items, ticking if it moved.
-func (a *app) menuMove(d int) {
+func (a *App) menuMove(d int) {
 	before := a.view.MenuSel
 	a.view.MenuMove(d)
 	if a.view.MenuSel != before {
@@ -29,7 +29,7 @@ func (a *app) menuMove(d int) {
 // menuKey handles the keyboard while the word-size menu is open: arrows
 // move, Enter or Space picks, Escape or W closes, and typing a size's first
 // digit (8, 1, 3, 6) picks it directly.
-func (a *app) menuKey(key qtcore.Key, text string) {
+func (a *App) menuKey(key qtcore.Key, text string) {
 	switch key {
 	case qtcore.Key_Up:
 		a.menuMove(-1)

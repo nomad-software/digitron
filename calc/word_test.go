@@ -184,6 +184,17 @@ func TestTooBig(t *testing.T) {
 		t.Errorf("1 / 2^1048576: error %v, want ErrTooBig", e.Err())
 	}
 
+	// Typing: a digit that would take the number past the limit is not
+	// taken, as one too long to paste is not. 2^MaxBits - 1 just fits.
+	e = New()
+	most := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), MaxBits), big.NewInt(1))
+	e.entry, e.typing = most.String(), true
+	e.syncEntry()
+	e.Digit(9)
+	if e.Err() != nil || e.entry != most.String() {
+		t.Errorf("a digit typed past the limit: error %v, entry of %d digits", e.Err(), len(e.entry))
+	}
+
 	if d := time.Since(start); d > 10*time.Second {
 		t.Errorf("reaching the limit took %v", d)
 	}

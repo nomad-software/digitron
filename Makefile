@@ -24,7 +24,7 @@ test:
 
 # Times the Qt layer (painting, a key, a click), to compare Qt bindings.
 bench:
-	go test -run '^$$' -bench . -benchmem .
+	go test -run '^$$' -bench . -benchmem ./gui
 
 # Presses keys at random, looking for a state the engine must never be in.
 # go test runs only FuzzKeys's seeds; this searches for FUZZTIME.

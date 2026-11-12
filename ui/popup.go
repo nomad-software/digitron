@@ -12,16 +12,6 @@ const (
 	popupNotch  = 4
 )
 
-// keyByID returns the key with the given id.
-func keyByID(id string) Key {
-	for _, k := range Keys {
-		if k.ID == id {
-			return k
-		}
-	}
-	panic("ui: no key " + id)
-}
-
 // popupRect places a panel w×h just above key k, right-aligned with it and
 // kept inside the body.
 func popupRect(k Key, w, h int) image.Rectangle {

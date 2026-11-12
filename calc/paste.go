@@ -35,10 +35,15 @@ func (e *Engine) Paste(s string) bool {
 	}
 	neg := strings.HasPrefix(s, "-")
 	s = strings.TrimPrefix(s, "-")
+	// Only one prefix is read: 0x0b1 is hex B1, not binary 1.
 	base := e.Base
-	for p, b := range map[string]int{"0x": 16, "0o": 8, "0b": 2} {
-		if strings.HasPrefix(s, p) {
-			s, base = s[2:], b
+	for _, p := range []struct {
+		prefix string
+		base   int
+	}{{"0x", 16}, {"0o", 8}, {"0b", 2}} {
+		if rest, ok := strings.CutPrefix(s, p.prefix); ok {
+			s, base = rest, p.base
+			break
 		}
 	}
 	var r *big.Rat

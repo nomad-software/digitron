@@ -222,6 +222,15 @@ func TestBitsAndToggle(t *testing.T) {
 	if e.Display().String() != "-9223372036854775681" {
 		t.Fatalf("toggle bit 64: got %s", e.Display())
 	}
+
+	// A fraction's bits are floating point, and are not clicked: toggling
+	// one would cut the fraction off.
+	e = New()
+	press(e, "1/2=")
+	e.ToggleBit(0)
+	if e.Display().String() != "0.5" {
+		t.Fatalf("toggling a bit of 0.5 gave %s", e.Display())
+	}
 }
 
 func TestUnaryOnGroup(t *testing.T) {
