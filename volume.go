@@ -5,7 +5,7 @@ package main
 import (
 	"image"
 
-	qt "github.com/mappu/miqt/qt6"
+	"github.com/nomad-software/qute/qtcore"
 
 	"digitron/ui"
 )
@@ -72,17 +72,17 @@ func (a *app) volumePress(pt image.Point) {
 // volumeKey handles the keyboard while the slider is open: Up and Right
 // are louder, Down and Left quieter, Home the loudest, End mute, a digit
 // that level, and Return, Space, Escape or S close it.
-func (a *app) volumeKey(key qt.Key, text string) {
+func (a *app) volumeKey(key qtcore.Key, text string) {
 	switch key {
-	case qt.Key_Up, qt.Key_Right:
+	case qtcore.Key_Up, qtcore.Key_Right:
 		a.setVolume(a.view.Volume + 1)
-	case qt.Key_Down, qt.Key_Left:
+	case qtcore.Key_Down, qtcore.Key_Left:
 		a.setVolume(a.view.Volume - 1)
-	case qt.Key_Home, qt.Key_PageUp:
+	case qtcore.Key_Home, qtcore.Key_PageUp:
 		a.setVolume(ui.MaxVolume)
-	case qt.Key_End, qt.Key_PageDown:
+	case qtcore.Key_End, qtcore.Key_PageDown:
 		a.setVolume(0)
-	case qt.Key_Return, qt.Key_Enter, qt.Key_Space, qt.Key_Escape, qt.Key_S:
+	case qtcore.Key_Return, qtcore.Key_Enter, qtcore.Key_Space, qtcore.Key_Escape, qtcore.Key_S:
 		a.closeVolume()
 	default:
 		if len(text) == 1 && text[0] >= '0' && text[0] <= '9' {

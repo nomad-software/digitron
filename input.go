@@ -5,20 +5,20 @@ package main
 import (
 	"image"
 
-	qt "github.com/mappu/miqt/qt6"
+	"github.com/nomad-software/qute/qtcore"
+	"github.com/nomad-software/qute/qtgui"
 
 	"digitron/ui"
 )
 
 // eventPoint returns where a mouse event happened on the virtual screen.
-// Position returns a copy with a finalizer, so it is not deleted here.
-func (a *app) eventPoint(ev *qt.QSinglePointEvent) image.Point {
+func (a *app) eventPoint(ev *qtgui.QSinglePointEvent) image.Point {
 	pos := ev.Position()
-	return a.toVirtual(pos.X(), pos.Y())
+	return a.toVirtual(pos.X, pos.Y)
 }
 
-func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
-	pt := a.eventPoint(ev.QSinglePointEvent)
+func (a *app) mousePress(ev *qtgui.QMouseEvent) {
+	pt := a.eventPoint(&ev.QSinglePointEvent)
 	if a.view.Menu {
 		// While the menu is open a click either picks an item or, anywhere
 		// else, dismisses the menu without reaching the keys underneath.
@@ -59,7 +59,7 @@ func (a *app) mousePress(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 
 // mouseRelease lets a key held down by the mouse back up, and ends a drag
 // of the volume slider's knob, setting the volume it was left at.
-func (a *app) mouseRelease(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
+func (a *app) mouseRelease() {
 	a.endVolumeDrag()
 	if a.mouseKey == "" {
 		return
@@ -71,16 +71,16 @@ func (a *app) mouseRelease(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
 
 // mouseMove drags the volume slider's knob, which only moves it, or
 // highlights the menu item under the pointer.
-func (a *app) mouseMove(super func(*qt.QMouseEvent), ev *qt.QMouseEvent) {
+func (a *app) mouseMove(ev *qtgui.QMouseEvent) {
 	if a.dragVolume {
-		a.moveVolume(ui.VolumeAt(a.eventPoint(ev.QSinglePointEvent).Y))
+		a.moveVolume(ui.VolumeAt(a.eventPoint(&ev.QSinglePointEvent).Y))
 		a.w.Update()
 		return
 	}
 	if !a.view.Menu {
 		return
 	}
-	if i := ui.MenuItemAt(a.eventPoint(ev.QSinglePointEvent)); i >= 0 && i != a.view.MenuSel {
+	if i := ui.MenuItemAt(a.eventPoint(&ev.QSinglePointEvent)); i >= 0 && i != a.view.MenuSel {
 		a.view.MenuSel = i
 		a.sounds.Tick()
 		a.w.Update()
@@ -100,8 +100,8 @@ func (a *app) press(id string) {
 	}
 }
 
-func (a *app) wheel(super func(*qt.QWheelEvent), ev *qt.QWheelEvent) {
-	dy := ev.AngleDelta().Y() // a copy with a finalizer, not deleted here
+func (a *app) wheel(ev *qtgui.QWheelEvent) {
+	dy := ev.AngleDelta().Y
 	step := 0
 	switch {
 	case dy > 0:
@@ -119,7 +119,7 @@ func (a *app) wheel(super func(*qt.QWheelEvent), ev *qt.QWheelEvent) {
 		a.w.Update()
 		return
 	}
-	if !a.eventPoint(ev.QSinglePointEvent).In(ui.MainGlass) {
+	if !a.eventPoint(&ev.QSinglePointEvent).In(ui.MainGlass) {
 		return
 	}
 	a.view.MainScroll += step
@@ -132,54 +132,57 @@ func (a *app) tap(id string) {
 	a.press(id)
 	a.view.Pressed = id
 	a.view.MainScroll = 0
-	a.flash.Start(110)
+	a.flash.StartWithInterval(110)
 	a.w.Update()
 }
 
-func (a *app) keyPress(super func(*qt.QKeyEvent), ev *qt.QKeyEvent) {
-	key := qt.Key(ev.Key())
-	if ev.Modifiers()&qt.ControlModifier != 0 {
+// keyPress handles a key, and reports whether it was one the calculator
+// uses.
+func (a *app) keyPress(ev *qtgui.QKeyEvent) bool {
+	key := qtcore.Key(ev.Key())
+	if ev.Modifiers()&qtcore.ControlModifier != 0 {
 		switch key {
-		case qt.Key_Q:
+		case qtcore.Key_Q:
 			a.w.Close()
-		case qt.Key_C:
-			qt.QGuiApplication_Clipboard().SetText(a.eng.CopyText())
-		case qt.Key_V:
-			a.eng.Paste(qt.QGuiApplication_Clipboard().Text())
+		case qtcore.Key_C:
+			qtgui.QGuiApplicationClipboard().SetText(a.eng.CopyText())
+		case qtcore.Key_V:
+			a.eng.Paste(qtgui.QGuiApplicationClipboard().Text())
 			a.w.Update()
 		}
-		return
+		return true
 	}
 	if a.view.Menu {
 		a.menuKey(key, ev.Text())
-		return
+		return true
 	}
 	if a.view.VolumeOpen {
 		a.volumeKey(key, ev.Text())
-		return
+		return true
 	}
 	switch key {
-	case qt.Key_Backspace:
+	case qtcore.Key_Backspace:
 		a.tap("bs")
-	case qt.Key_Escape:
+	case qtcore.Key_Escape:
 		a.tap("ac")
-	case qt.Key_Delete:
+	case qtcore.Key_Delete:
 		a.tap("c")
-	case qt.Key_Return, qt.Key_Enter:
+	case qtcore.Key_Return, qtcore.Key_Enter:
 		a.tap("eq")
-	case qt.Key_F5:
+	case qtcore.Key_F5:
 		a.tap("hex")
-	case qt.Key_F6:
+	case qtcore.Key_F6:
 		a.tap("dec")
-	case qt.Key_F7:
+	case qtcore.Key_F7:
 		a.tap("oct")
-	case qt.Key_F9:
+	case qtcore.Key_F9:
 		a.tap("neg")
 	default:
-		if id := ui.KeyForText(ev.Text()); id != "" {
-			a.tap(id)
-		} else {
-			super(ev)
+		id := ui.KeyForText(ev.Text())
+		if id == "" {
+			return false
 		}
+		a.tap(id)
 	}
+	return true
 }

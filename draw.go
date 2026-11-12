@@ -8,22 +8,24 @@ import (
 	"math"
 	"unsafe"
 
-	qt "github.com/mappu/miqt/qt6"
+	"github.com/nomad-software/qute/qtcore"
+	"github.com/nomad-software/qute/qtgui"
 
 	"digitron/ui"
 )
 
 // upload enlarges the Go frame k times into a QImage, repeating each art
 // pixel as a k×k block.
-func (a *app) upload(k int) *qt.QImage {
+func (a *app) upload(k int) *qtgui.QImage {
 	if a.up == nil || a.upK != k {
 		if a.up != nil {
 			a.up.Delete()
 		}
-		a.up, a.upK = qt.NewQImage3(ui.W*k, ui.H*k, qt.QImage__Format_RGBA8888), k
+		size := qtcore.QSize{Width: ui.W * k, Height: ui.H * k}
+		a.up, a.upK = qtgui.NewQImageWithSize(size, qtgui.QImageFormat_RGBA8888), k
 	}
-	bpl := int(a.up.BytesPerLine())
-	dst := unsafe.Slice(a.up.Bits(), bpl*ui.H*k)
+	bpl := a.up.BytesPerLine()
+	dst := unsafe.Slice((*byte)(a.up.Bits()), bpl*ui.H*k)
 	for y := range ui.H {
 		src := a.frame.Pix[y*a.frame.Stride : y*a.frame.Stride+ui.W*4]
 		row := dst[y*k*bpl : y*k*bpl+ui.W*k*4]
@@ -54,16 +56,14 @@ func (a *app) paint() {
 
 	// Enlarge enough for the larger of the two axes, so neither is ever
 	// stretched by the smooth pass.
-	dpr := a.w.DevicePixelRatioF()
+	dpr := a.w.AsQPaintDevice().DevicePixelRatioF()
 	k := max(1, int(math.Ceil(max(a.sx, a.sy)*dpr-1e-9)))
 	img := a.upload(k)
 
-	p := qt.NewQPainter2(a.w.QPaintDevice)
+	p := qtgui.NewQPainterOn(a.w)
 	defer p.Delete()
-	p.SetRenderHint(qt.QPainter__SmoothPixmapTransform)
-	target := qt.NewQRect4(0, 0, ww, wh)
-	defer target.Delete()
-	p.DrawImage6(target, img)
+	p.SetRenderHint(qtgui.QPainterSmoothPixmapTransform)
+	p.DrawImageIn(qtcore.QRect{Width: ww, Height: wh}, img)
 	p.End()
 }
 
@@ -75,15 +75,11 @@ func (a *app) toVirtual(x, y float64) image.Point {
 func (a *app) setIcon() {
 	logo := ui.IconAt(8)
 	n := logo.Bounds().Dx()
-	img := qt.NewQImage3(n, n, qt.QImage__Format_RGBA8888)
+	img := qtgui.NewQImageFromBytes(logo.Pix, n, n, logo.Stride, qtgui.QImageFormat_RGBA8888)
 	defer img.Delete()
-	bpl := int(img.BytesPerLine())
-	dst := unsafe.Slice(img.Bits(), bpl*n)
-	for y := range n {
-		copy(dst[y*bpl:], logo.Pix[y*logo.Stride:y*logo.Stride+n*4])
-	}
-	pm := qt.QPixmap_FromImage(img) // a copy with a finalizer, not deleted here
-	icon := qt.NewQIcon2(pm)
+	pm := qtgui.QPixmapFromImage(img)
+	defer pm.Delete()
+	icon := qtgui.NewQIconWithPixmap(pm)
 	defer icon.Delete()
 	a.w.SetWindowIcon(icon)
 }

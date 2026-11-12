@@ -23,8 +23,8 @@ import (
 	"math"
 	"math/rand"
 
-	qt "github.com/mappu/miqt/qt6"
-	"github.com/mappu/miqt/qt6/multimedia"
+	"github.com/nomad-software/qute/qtcore"
+	"github.com/nomad-software/qute/qtmultimedia"
 )
 
 var (
@@ -53,8 +53,8 @@ const (
 
 // voice is one audio output and the buffer it plays from.
 type voice struct {
-	sink *multimedia.QAudioSink
-	buf  *qt.QBuffer
+	sink *qtmultimedia.QAudioSink
+	buf  *qtcore.QBuffer
 }
 
 // effect is one sound at each of its pitches, with audio outputs of its
@@ -115,13 +115,13 @@ func newEffect(wav []byte, volume, spread float64) (*effect, error) {
 		e.pitches = append(e.pitches, pcmBytes(resample(pcm, pitch)))
 	}
 
-	format := multimedia.NewQAudioFormat()
+	format := qtmultimedia.NewQAudioFormat()
 	defer format.Delete()
 	format.SetSampleRate(rate)
 	format.SetChannelCount(1)
-	format.SetSampleFormat(multimedia.QAudioFormat__Int16)
+	format.SetSampleFormat(qtmultimedia.QAudioFormatInt16)
 	for range voices {
-		v := voice{sink: multimedia.NewQAudioSink3(format), buf: qt.NewQBuffer()}
+		v := voice{sink: qtmultimedia.NewQAudioSinkWithAudioFormat(format, nil), buf: qtcore.NewQBuffer(nil)}
 		v.sink.SetVolume(volume)
 		e.voices = append(e.voices, v)
 	}
@@ -168,8 +168,8 @@ func (e *effect) play() {
 	v.sink.Stop()
 	v.buf.Close()
 	v.buf.SetData(e.pitches[i])
-	if v.buf.Open(qt.QIODeviceBase__ReadOnly) {
-		v.sink.Start(v.buf.QIODevice)
+	if v.buf.Open(qtcore.QIODeviceBaseReadOnly) {
+		v.sink.StartWithDevice(v.buf)
 	}
 }
 

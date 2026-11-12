@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 
-	qt "github.com/mappu/miqt/qt6"
+	"github.com/nomad-software/qute/qtcore"
 
 	"digitron/ui"
 )
@@ -29,20 +29,20 @@ func (a *app) menuMove(d int) {
 // menuKey handles the keyboard while the word-size menu is open: arrows
 // move, Enter or Space picks, Escape or W closes, and typing a size's first
 // digit (8, 1, 3, 6) picks it directly.
-func (a *app) menuKey(key qt.Key, text string) {
+func (a *app) menuKey(key qtcore.Key, text string) {
 	switch key {
-	case qt.Key_Up:
+	case qtcore.Key_Up:
 		a.menuMove(-1)
-	case qt.Key_Down:
+	case qtcore.Key_Down:
 		a.menuMove(1)
-	case qt.Key_Home:
+	case qtcore.Key_Home:
 		a.menuMove(-len(ui.MenuItems))
-	case qt.Key_End:
+	case qtcore.Key_End:
 		a.menuMove(len(ui.MenuItems))
-	case qt.Key_Return, qt.Key_Enter, qt.Key_Space:
+	case qtcore.Key_Return, qtcore.Key_Enter, qtcore.Key_Space:
 		a.sounds.Key()
 		a.chooseWidth()
-	case qt.Key_Escape, qt.Key_W:
+	case qtcore.Key_Escape, qtcore.Key_W:
 		a.view.CloseMenu()
 	default:
 		for i, it := range ui.MenuItems {

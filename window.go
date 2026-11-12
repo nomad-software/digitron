@@ -9,7 +9,7 @@ package main
 // resized, and put back in shape once the resizing has stopped.
 
 import (
-	qt "github.com/mappu/miqt/qt6"
+	"github.com/nomad-software/qute/qtcore"
 
 	"digitron/ui"
 )
@@ -23,7 +23,7 @@ const reshapeDelay = 300
 // from.
 func (a *app) startReshaping(w, h int) {
 	a.shapedW, a.shapedH = w, h
-	a.reshape = qt.NewQTimer()
+	a.reshape = qtcore.NewQTimer(a.w)
 	a.reshape.SetSingleShot(true)
 	a.reshape.OnTimeout(a.snapToShape)
 }
@@ -31,19 +31,17 @@ func (a *app) startReshaping(w, h int) {
 // resized waits for the resizing to stop before putting the window in
 // shape: each resize starts the wait again. A size already in shape needs
 // nothing, and becomes the size the next resize starts from.
-func (a *app) resized(super func(*qt.QResizeEvent), ev *qt.QResizeEvent) {
-	super(ev)
+func (a *app) resized(size qtcore.QSize) {
 	if a.w.IsMaximized() || a.w.IsFullScreen() {
 		a.reshape.Stop()
 		return
 	}
-	size := ev.Size() // belongs to the event and is freed with it
-	if ui.InShape(size.Width(), size.Height()) {
-		a.shapedW, a.shapedH = size.Width(), size.Height()
+	if ui.InShape(size.Width, size.Height) {
+		a.shapedW, a.shapedH = size.Width, size.Height
 		a.reshape.Stop()
 		return
 	}
-	a.reshape.Start(reshapeDelay)
+	a.reshape.StartWithInterval(reshapeDelay)
 }
 
 // snapToShape puts the window in the calculator's shape: the side that was

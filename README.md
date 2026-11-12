@@ -3,7 +3,7 @@
 A retro calculator for programmers. It looks like a pocket calculator from
 the eighties, drawn pixel by pixel, and it does the arithmetic
 correctly. It is written in Go with a Qt 6 interface using the
-[miqt](https://github.com/mappu/miqt) bindings.
+[qute](https://github.com/nomad-software/qute) bindings, for Linux.
 
 ![Digitron in hexadecimal at 64 bits, showing DEADBEEF XOR CAFE = DEAD7411 on its main display and the bits of the result on the binary display below](docs/previews/screenshot.png)
 
@@ -170,17 +170,16 @@ once.
 
 ## Requirements
 
-Digitron is developed and tested on Linux.
+Digitron is for Linux only.
 
 Building needs:
 
 - Go 1.27 or later
-- A C++ compiler (GCC or Clang)
+- A C++17 compiler (GCC or Clang)
 - `pkg-config`
-- The Qt 6 base development files (Qt 6 Widgets)
-- The Qt 6 Multimedia development files, for the sounds
-
-### Linux
+- Qt 6.12 or later: the base development files (Qt 6 Widgets) and the
+  Multimedia development files, for the sounds. The qute bindings are made
+  from Qt 6.12 and do not compile with an older Qt.
 
 Install them with your distribution's package manager:
 
@@ -199,41 +198,28 @@ sudo zypper install go gcc-c++ pkgconf-pkg-config qt6-base-devel qt6-multimedia-
 ```
 
 If your distribution's Go is older than 1.27, install Go from
-[go.dev/dl](https://go.dev/dl/) instead.
+[go.dev/dl](https://go.dev/dl/) instead. If its Qt is older than 6.12, as
+it is on stable releases of most distributions for now, install Qt 6.12
+with [Qt's online installer](https://www.qt.io/download-qt-installer) or
+[aqtinstall](https://github.com/miurahr/aqtinstall), as the AppImage
+workflow does, and point `pkg-config` at it with
+`PKG_CONFIG_PATH=<Qt>/lib/pkgconfig`; or use the AppImage.
 
-Running a built binary on another machine only needs the Qt 6 runtime
+Running a built binary on another machine only needs the Qt 6 (6.12 or later) runtime
 libraries (`qt6-base` and `qt6-multimedia` on Arch, `libqt6widgets6` and
 `libqt6multimedia6` on Debian and Ubuntu, `qt6-qtbase` and
 `qt6-qtmultimedia` on Fedora, `libQt6Widgets6` and `libQt6Multimedia6` on
 openSUSE).
 
-### macOS
-
-Digitron has not been tried on macOS, but it uses nothing specific to Linux.
-Install the Xcode command line tools, which provide the Clang compiler, and
-then the rest with [Homebrew](https://brew.sh):
-
-```sh
-xcode-select --install
-brew install go pkgconf qt
-```
-
-The `qt` formula is Qt 6, Multimedia included. If `pkg-config` cannot find
-it afterwards, tell it where Homebrew put Qt:
-
-```sh
-export PKG_CONFIG_PATH="$(brew --prefix qt)/lib/pkgconfig:$PKG_CONFIG_PATH"
-```
-
 ### Checking
 
-On either system, check that Qt can be found with:
+Check that Qt can be found with:
 
 ```sh
-pkg-config --modversion Qt6Widgets Qt6MultimediaWidgets
+pkg-config --modversion Qt6Widgets Qt6Multimedia
 ```
 
-This should print two versions starting with 6.
+This should print two versions, 6.12 or later.
 
 ## Building
 
@@ -248,7 +234,9 @@ go build -ldflags "-s -w" -o digitron .
 ```
 
 The `-s -w` flags build without the symbol table and debug information, which
-roughly halves the size of the binary, to about 33 MB.
+roughly halves the size of the binary, to about 19 MB. It is the only
+file a build leaves in the project's folder (and `.gitignore` leaves it
+out); Go keeps what it compiles in its own build cache.
 
 The sounds, `sound/key.wav` and `sound/tick.wav`, are committed and
 embedded in the binary. The chirp is cut from a recording; the ffmpeg
@@ -263,9 +251,8 @@ go generate ./sound
 A test fails if the committed tick no longer matches what the synthesiser
 makes.
 
-The first build compiles the whole Qt binding and takes several minutes,
-printing a lot of compiler warnings from the Qt headers, which can be
-ignored. Later builds use the Go build cache and take a few seconds.
+The first build compiles the C++ part of the Qt bindings and takes a couple
+of minutes. Later builds use the Go build cache and take a few seconds.
 
 ## AppImage
 
@@ -279,7 +266,7 @@ chmod +x Digitron-*-x86_64.AppImage
 ```
 
 It is built by a GitHub workflow (`.github/workflows/appimage.yml`), which runs
-`packaging/appimage.sh` on Ubuntu 22.04 with Qt's own build of Qt 6.9:
+`packaging/appimage.sh` on Ubuntu 22.04 with Qt's own build of Qt 6.12:
 
 - Pushing a tag that starts with `v` builds it and attaches it to a release of
   that name: `git tag v1.0.0 && git push origin v1.0.0`.
@@ -298,53 +285,17 @@ be reliably: it has to match the system's graphics drivers. It is built on an
 old distribution instead, and runs on any with glibc 2.35 or later (Ubuntu
 22.04, Debian 12, Fedora 36 and anything newer, or rolling).
 
+The script builds in `/tmp/digitron-build` (or the folder `BUILD` names),
+and leaves only the AppImage, `Digitron-<version>-x86_64.AppImage`, in the
+project's folder, where `.gitignore` leaves it out. The tools it downloads
+are kept there between runs, and `make clean` removes it all.
+
 `make appimage` runs the same script locally, but an AppImage built on a newer
 system only runs on systems at least as new. On a distribution whose Qt
 Multimedia uses the system's FFmpeg, such as Arch, it is not made at all:
 that FFmpeg brings a large tree of libraries with it, one of which does not
 survive being packed, and the AppImage crashes as it starts, which the
 script's check catches. Use the workflow, with Qt's own build, for releases.
-
-## macOS app
-
-Releases for macOS are a disk image, `Digitron-*-arm64.dmg`, for Macs with
-Apple Silicon. Open it and drag Digitron into Applications. Macs with Intel
-processors are not supported.
-
-The app is not signed with an Apple Developer ID or notarised by Apple, so
-the first time it is opened macOS says that it cannot check it for malicious
-software and will not open it. Either:
-
-- Open System Settings > Privacy & Security, where Digitron is named
-  beneath Security, and choose Open Anyway, or
-- take away the mark macOS gives what is downloaded, in Terminal:
-
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/Digitron.app
-  ```
-
-Either is only needed once. It is signed ad hoc, which a Mac with Apple
-Silicon needs to run it at all.
-
-It is built by a GitHub workflow (`.github/workflows/macos.yml`), which runs
-`packaging/macos.sh` on a Mac with Apple Silicon and Homebrew's Qt, when a
-`v` tag is pushed, as the AppImage is, or by hand from the Actions tab (macOS
-> Run workflow). The script builds the program, makes `Digitron.app` with
-its icon (from `packaging/macos/digitron.png`) and `Info.plist` (from
-`packaging/macos/Info.plist`), copies Qt into it with Qt's `macdeployqt`,
-checks that a backend for Qt Multimedia is in it (Apple's, as Homebrew
-builds Qt Multimedia for macOS without FFmpeg) and that nothing in it
-still uses a library from outside it, signs it, checks that it starts, and
-makes the disk image. It needs the macOS the workflow builds on (macOS 15)
-or later, which the script works out from what is in the app and writes
-into its `Info.plist`.
-
-`make macos` runs the same script on a Mac with Apple Silicon and
-`brew install go pkgconf qtbase qtmultimedia`: only the parts of Qt Digitron
-uses, as with the whole of Homebrew's `qt` the plugins of its other modules
-go into the app too, with what they use. The icon of the macOS app is the
-logo, enlarged within Apple's margin, and is drawn by `make icons`; a test
-fails if the logo changes without it being run.
 
 ## Running
 
@@ -358,7 +309,7 @@ or build and run in one step with:
 make run
 ```
 
-On Linux, every time it starts Digitron writes a desktop entry for itself,
+Every time it starts Digitron writes a desktop entry for itself,
 `~/.local/share/applications/digitron.desktop` (or under `$XDG_DATA_HOME`),
 with its logo as the icon in
 `~/.local/share/icons/hicolor/256x256/apps/digitron.png`. That puts it among
@@ -375,8 +326,8 @@ The window size, whether the window was maximised, the word size and the
 volume are saved when Digitron closes; the word size also as soon as it is
 chosen, and the volume when the slider is closed.
 They are kept in a JSON file, `digitron/settings.json`, in the place the
-system has for the configuration of programs: `~/.config` on Linux (or
-`$XDG_CONFIG_HOME`) and `~/Library/Application Support` on macOS. If there is
+system has for the configuration of programs: `~/.config` (or
+`$XDG_CONFIG_HOME`). If there is
 no such place, the file is kept in the current directory.
 
 ```json
@@ -430,7 +381,17 @@ with:
 make screenshot
 ```
 
-The logo is also the window icon. `docs/concept.png` is the concept the
+The logo is also the window icon.
+
+The window itself, painted through Qt, has benchmarks of its own, which run
+headlessly on Qt's offscreen platform: painting at 1× and 3× and while being
+resized, the frame's drawing alone, which is pure Go, and a key and a click
+sent to the window. They measure what the Qt bindings cost, to compare one
+version of them, or one binding, with another:
+
+```sh
+make bench
+``` `docs/concept.png` is the concept the
 calculator's face was drawn from.
 
 ## License

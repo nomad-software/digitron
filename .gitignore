@@ -5,5 +5,5 @@
 # configuration folder.
 /settings.json
 
-# What make appimage and make macos build in.
-/build/
+# What make appimage makes (it builds in /tmp).
+/Digitron-*.AppImage

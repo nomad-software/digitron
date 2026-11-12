@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"image"
 	"os"
-	"runtime"
 
-	qt "github.com/mappu/miqt/qt6"
+	"github.com/nomad-software/qute"
+	"github.com/nomad-software/qute/qtcore"
+	"github.com/nomad-software/qute/qtgui"
+	"github.com/nomad-software/qute/qtwidgets"
 
 	"digitron/calc"
 	"digitron/desktop"
@@ -19,14 +21,14 @@ import (
 )
 
 type app struct {
-	w     *qt.QWidget
+	w     *qtwidgets.QWidget
 	eng   *calc.Engine
 	view  ui.View
 	frame *image.RGBA
 
 	// up is the frame enlarged by a whole-number factor upK with
 	// nearest-neighbour sampling, ready to be shrunk to the window.
-	up  *qt.QImage
+	up  *qtgui.QImage
 	upK int
 
 	// Current horizontal and vertical blit scale, for mapping mouse
@@ -43,18 +45,18 @@ type app struct {
 	// soundStart starts the sound once the window is on screen, because
 	// Qt Multimedia takes about a second to start; soundPending is whether
 	// it is still to be started.
-	soundStart   *qt.QTimer
+	soundStart   *qtcore.QTimer
 	soundPending bool
 
 	mouseKey string
-	flash    *qt.QTimer
+	flash    *qtcore.QTimer
 
 	// dragVolume is whether the mouse is dragging the volume slider's knob.
 	dragVolume bool
 
 	// reshape puts the window back in the calculator's shape once it has
 	// stopped being resized; shapedW×shapedH is its size when last in shape.
-	reshape          *qt.QTimer
+	reshape          *qtcore.QTimer
 	shapedW, shapedH int
 }
 
@@ -67,38 +69,46 @@ func main() {
 		path = "settings.json"
 	}
 
-	qt.NewQApplication(os.Args)
-	qt.QCoreApplication_SetApplicationName(desktop.Name)
-	qt.QGuiApplication_SetApplicationDisplayName("Digitron")
-	// Under Wayland this is the name a window goes by, which a desktop
-	// matches to the desktop entry of that name for its icon and its place
-	// in the task bar.
-	qt.QGuiApplication_SetDesktopFileName(desktop.Name)
+	var a *app
+	code := qute.Main(func() {
+		qtcore.QCoreApplicationSetApplicationName(desktop.Name)
+		qtgui.QGuiApplicationSetApplicationDisplayName("Digitron")
+		// Under Wayland this is the name a window goes by, which a desktop
+		// matches to the desktop entry of that name for its icon and its
+		// place in the task bar.
+		qtgui.QGuiApplicationSetDesktopFileName(desktop.Name)
 
-	// On Linux the desktop is given an entry for the program, with the logo
-	// as its icon, which starts the copy that is running now, wherever it is
-	// and whatever it is called, so that it can be started from the
-	// desktop's own menus and kept in a dock or sidebar.
-	if runtime.GOOS == "linux" {
+		// The desktop is given an entry for the program, with the logo as
+		// its icon, which starts the copy that is running now, wherever it
+		// is and whatever it is called, so that it can be started from the
+		// desktop's own menus and kept in a dock or sidebar.
 		if err := desktop.Install(ui.IconPNG(8)); err != nil {
 			fmt.Fprintln(os.Stderr, "digitron: the desktop entry could not be written:", err)
 		}
-	}
 
+		a = newApp(settings.Load(path), path)
+		a.show()
+	})
+	a.sounds.Close()
+	os.Exit(code)
+}
+
+// newApp makes the calculator's window, not yet shown, from the settings
+// saved in path. The Qt application must have been made.
+func newApp(config settings.Settings, path string) *app {
 	a := &app{
 		eng:    calc.New(),
 		frame:  image.NewRGBA(image.Rect(0, 0, ui.W, ui.H)),
-		config: settings.Load(path),
+		config: config,
 		path:   path,
 	}
 	a.eng.SetWidth(a.config.WordSize)
 	a.view.Volume = a.config.Volume
-	defer a.sounds.Close()
-	a.w = qt.NewQWidget2()
+	a.w = newWindow(a)
 	a.w.SetWindowTitle("Digitron")
-	a.w.SetFocusPolicy(qt.StrongFocus)
+	a.w.SetFocusPolicy(qtcore.StrongFocus)
 	a.w.SetMouseTracking(true) // for menu hover
-	a.w.SetMinimumSize2(ui.W, ui.H)
+	a.w.SetMinimumSize(ui.W, ui.H)
 	// A saved size out of shape is put in shape, keeping its width.
 	w, h := ui.WindowSize(a.config.Width, a.config.Height, a.config.Width, a.config.Height)
 	a.w.Resize(w, h)
@@ -107,11 +117,11 @@ func main() {
 	// The sound is started even when muted, so that turning it up later
 	// does not stall the window while Qt Multimedia starts.
 	a.soundPending = true
-	a.soundStart = qt.NewQTimer()
+	a.soundStart = qtcore.NewQTimer(a.w)
 	a.soundStart.SetSingleShot(true)
 	a.soundStart.OnTimeout(a.startSound)
 
-	a.flash = qt.NewQTimer()
+	a.flash = qtcore.NewQTimer(a.w)
 	a.flash.SetSingleShot(true)
 	a.flash.OnTimeout(func() {
 		if a.mouseKey == "" {
@@ -120,25 +130,17 @@ func main() {
 		}
 	})
 
-	a.w.OnPaintEvent(func(super func(*qt.QPaintEvent), ev *qt.QPaintEvent) { a.paint() })
-	a.w.OnMousePressEvent(a.mousePress)
-	a.w.OnMouseReleaseEvent(a.mouseRelease)
-	a.w.OnMouseMoveEvent(a.mouseMove)
-	a.w.OnWheelEvent(a.wheel)
-	a.w.OnKeyPressEvent(a.keyPress)
-	a.w.OnResizeEvent(a.resized)
-	a.w.OnCloseEvent(func(super func(*qt.QCloseEvent), ev *qt.QCloseEvent) {
-		a.saveSettings()
-		super(ev)
-	})
-
 	a.setIcon()
+	return a
+}
+
+// show shows the window, maximised if it was when last closed.
+func (a *app) show() {
 	if a.config.Maximized {
 		a.w.ShowMaximized()
 	} else {
 		a.w.Show()
 	}
-	qt.QApplication_Exec()
 }
 
 // afterFirstPaint starts the sound once the first frame has been drawn: the
@@ -146,7 +148,7 @@ func main() {
 func (a *app) afterFirstPaint() {
 	if a.soundPending {
 		a.soundPending = false
-		a.soundStart.Start(0)
+		a.soundStart.StartWithInterval(0)
 	}
 }
 
