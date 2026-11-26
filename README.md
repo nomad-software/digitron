@@ -1,4 +1,4 @@
-# <img src="docs/previews/logo.png" alt="" width="40" height="40"> Digitron
+# <img src="appicon/appicon.png" alt="" width="40" height="40"> Digitron
 
 A retro calculator for programmers. It looks like a pocket calculator from
 the eighties, drawn pixel by pixel, and it does the arithmetic
@@ -312,7 +312,7 @@ make run
 
 Every time it starts Digitron writes a desktop entry for itself,
 `~/.local/share/applications/digitron.desktop` (or under `$XDG_DATA_HOME`),
-with its logo as the icon in
+with its icon in
 `~/.local/share/icons/hicolor/256x256/apps/digitron.png`. That puts it among
 the desktop's applications, to be started from the menu and kept in a dock
 or sidebar. The entry starts the copy that was run last, from wherever it was
@@ -374,7 +374,7 @@ make fuzz               # a minute
 make fuzz FUZZTIME=10m
 ```
 
-The screenshot and logo in this file, and pictures of a few other states of
+The screenshot in this file, and pictures of a few other states of
 the calculator, are drawn by a test into `docs/previews`, and are made again
 with:
 
@@ -382,7 +382,14 @@ with:
 make screenshot
 ```
 
-The logo is also the window icon.
+The icon, which the window, the desktop entry and the AppImage all use, is
+drawn from `packaging/digitron.svg` and built into the program as a PNG. After
+changing the drawing, make the PNG again (this needs `rsvg-convert`, from
+librsvg):
+
+```sh
+make icons
+```
 
 The window itself, painted through Qt, has benchmarks of its own, which run
 headlessly on Qt's offscreen platform: painting at 1× and 3× and while being

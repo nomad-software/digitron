@@ -11,10 +11,10 @@ import (
 	"github.com/nomad-software/qute/qtcore"
 	"github.com/nomad-software/qute/qtgui"
 
+	"digitron/appicon"
 	"digitron/desktop"
 	"digitron/gui"
 	"digitron/settings"
-	"digitron/ui"
 )
 
 func main() {
@@ -35,11 +35,10 @@ func main() {
 		// place in the task bar.
 		qtgui.QGuiApplicationSetDesktopFileName(desktop.Name)
 
-		// The desktop is given an entry for the program, with the logo as
-		// its icon, which starts the copy that is running now, wherever it
+		// The desktop is given an entry for the program, with its icon, which starts the copy that is running now, wherever it
 		// is and whatever it is called, so that it can be started from the
 		// desktop's own menus and kept in a dock or sidebar.
-		if err := desktop.Install(ui.IconPNG(8)); err != nil {
+		if err := desktop.Install(appicon.PNG); err != nil {
 			fmt.Fprintln(os.Stderr, "digitron: the desktop entry could not be written:", err)
 		}
 

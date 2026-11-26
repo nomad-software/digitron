@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="14 14 228 228">
+  <!-- In the style of Termite's icon: a thick dark outline, a body with a
+       lighter band along its top, and a dark panel with the content. The
+       colours are the calculator's own (the palette in ui/render.go). -->
+  <!-- calculator body with a thick dark outline -->
+  <rect x="36" y="14" width="184" height="228" rx="30" fill="#2b2520"/>
+  <rect x="46" y="24" width="164" height="208" rx="21" fill="#d8c8ab"/>
+  <!-- top band highlight -->
+  <path d="M67 24 h122 a21 21 0 0 1 21 21 v61 H46 v-61 a21 21 0 0 1 21 -21 z" fill="#ece1ca"/>
+  <!-- display: a lit binary readout, 1010 -->
+  <rect x="58" y="36" width="140" height="58" rx="12" fill="#2b2520"/>
+  <g fill="none" stroke="#5cdc53" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M81 52 v26"/>
+    <rect x="102" y="52" width="18" height="26" rx="8"/>
+    <path d="M141 52 v26"/>
+    <rect x="162" y="52" width="18" height="26" rx="8"/>
+  </g>
+  <!-- keys: three columns of digits and a darker column of operators -->
+  <g fill="#6b625a">
+    <rect x="58" y="118" width="28" height="20" rx="7"/>
+    <rect x="94" y="118" width="28" height="20" rx="7"/>
+    <rect x="130" y="118" width="28" height="20" rx="7"/>
+    <rect x="58" y="146" width="28" height="20" rx="7"/>
+    <rect x="94" y="146" width="28" height="20" rx="7"/>
+    <rect x="130" y="146" width="28" height="20" rx="7"/>
+    <rect x="58" y="174" width="28" height="20" rx="7"/>
+    <rect x="94" y="174" width="28" height="20" rx="7"/>
+    <rect x="130" y="174" width="28" height="20" rx="7"/>
+    <rect x="58" y="202" width="28" height="20" rx="7"/>
+    <rect x="94" y="202" width="28" height="20" rx="7"/>
+    <rect x="130" y="202" width="28" height="20" rx="7"/>
+  </g>
+  <g fill="#2b2520">
+    <rect x="166" y="118" width="32" height="20" rx="7"/>
+    <rect x="166" y="146" width="32" height="20" rx="7"/>
+    <rect x="166" y="174" width="32" height="20" rx="7"/>
+    <rect x="166" y="202" width="32" height="20" rx="7"/>
+  </g>
+</svg>

@@ -4,7 +4,7 @@ BINARY := digitron
 # halves the size of the binary.
 LDFLAGS := -s -w
 
-.PHONY: build run test bench fuzz vet screenshot appimage clean
+.PHONY: build run test bench fuzz vet icons screenshot appimage clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) .
@@ -35,6 +35,11 @@ fuzz:
 
 vet:
 	go vet ./...
+
+# Draws the program's icon, appicon/appicon.png, from
+# packaging/digitron.svg. Needs rsvg-convert (librsvg).
+icons:
+	rsvg-convert -w 256 -h 256 packaging/digitron.svg -o appicon/appicon.png
 
 # Renders sample calculator states (3x scale) as PNGs into docs/previews.
 screenshot:

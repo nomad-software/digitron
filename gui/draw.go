@@ -11,6 +11,7 @@ import (
 	"github.com/nomad-software/qute/qtcore"
 	"github.com/nomad-software/qute/qtgui"
 
+	"digitron/appicon"
 	"digitron/ui"
 )
 
@@ -71,14 +72,11 @@ func (a *App) toVirtual(x, y float64) image.Point {
 	return image.Pt(int(x/a.sx), int(y/a.sy))
 }
 
-// setIcon uses the logo, enlarged with sharp pixels, as the window icon.
+// setIcon uses the program's icon as the window icon.
 func (a *App) setIcon() {
-	logo := ui.IconAt(8)
-	n := logo.Bounds().Dx()
-	img := qtgui.NewQImageFromBytes(logo.Pix, n, n, logo.Stride, qtgui.QImageFormat_RGBA8888)
-	defer img.Delete()
-	pm := qtgui.QPixmapFromImage(img)
+	pm := qtgui.NewQPixmap()
 	defer pm.Delete()
+	pm.LoadFromData(appicon.PNG)
 	icon := qtgui.NewQIconWithPixmap(pm)
 	defer icon.Delete()
 	a.w.SetWindowIcon(icon)
